@@ -97,7 +97,11 @@ const ll2w = (lat,lon) => [(lon-O.lon)*KX, (lat-O.lat)*M];
 const DEFAULT_ANCHORS = [
   {z:[7986.6,249.0], w:ll2w(47.50178104795657, 19.135567859416135)},   // terminal (GPS, confirmed good)
   {z:[7137.4,157.8], w:ll2w(47.49471320266731, 19.13875500486254)},    // ~850 units away
-  {z:[6962.4,-23.7], w:ll2w(47.49346893716034, 19.141309058848027)}    // ~1060 units away
+  {z:[6962.4,-23.7], w:ll2w(47.49346893716034, 19.141309058848027)},   // ~1060 units away
+  {z:[6818.2,115.9], w:ll2w(47.49193384085207, 19.139208527755756)},   // Kincsem Park area
+  {z:[3635.5,122.4], w:ll2w(47.465386870869146, 19.152781071797495)},  // ~4350 units from the terminal
+  {z:[6771.6,208.4], w:ll2w(47.491031281555905, 19.138060542358012)},
+  {z:[3765.0,-87.5], w:ll2w(47.46742458378954, 19.15467575481523)}
 
   // Left out: they disagree with the three above by ~13 m. Re-add after re-measuring:
   // {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
@@ -108,7 +112,17 @@ const DEF = {z:[7986.6,249.0], w:[(19.135567859416135-O.lon)*KX, (47.50178104795
 // That is a +90° rotation (A = i). A single calibration point keeps this rotation; two distant points refine it.
 const ROT = [0,1];
 let fitRms = null;
+// The game map is slightly warped compared with OSM (local rotation/scale differ by a few degrees between areas), so one
+// global similarity cannot match every anchor. After the global fit, each anchor's leftover error is spread to nearby
+// positions (inverse-distance weighted); far from all anchors the correction fades to zero. Anchors then match exactly.
+const CORR_R = 1500;   // game units: beyond roughly this distance from every anchor the correction fades out
+let RES = [];
+const currentList = () => anchors.length ? anchors : ($("flip").checked ? [] : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]));
 function solve(){
+  solveFit();
+  RES = currentList().map(q => ({z:q.z, r:csub(q.w, cadd(cmul(A,q.z),B))}));
+}
+function solveFit(){
   A=ROT; B=[0,0]; fitRms=null;
   const list = anchors.length ? anchors : ($("flip").checked ? [] : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]));
   const n = list.length;
@@ -131,20 +145,29 @@ function solve(){
 const zOf = p => [p.x, $("flip").checked ? -p.y : p.y];
 function toLatLng(p){
   if(p.lat!=null && p.lon!=null) return [p.lat,p.lon];
-  const w = cadd(cmul(A,zOf(p)),B);
+  const z = zOf(p);
+  let w = cadd(cmul(A,z),B);
+  if(RES.length){
+    let nx=0, ny=0, den=1/(CORR_R*CORR_R);
+    for(const q of RES){
+      const dx=z[0]-q.z[0], dy=z[1]-q.z[1], k=1/(dx*dx+dy*dy+25);
+      nx+=k*q.r[0]; ny+=k*q.r[1]; den+=k;
+    }
+    w = [w[0]+nx/den, w[1]+ny/den];
+  }
   return [O.lat + w[1]/M, O.lon + w[0]/KX];
 }
 function calText(){
   const deg = Math.atan2(A[1],A[0])*180/Math.PI, sc = Math.hypot(A[0],A[1]);
   $("calst").textContent = (anchors.length || DEFAULT_ANCHORS.length)
-    ? `Calibrated with ${anchors.length || DEFAULT_ANCHORS.length} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (fitRms!=null ? ` · avg misfit ${fitRms.toFixed(1)} m` : "")
+    ? `Calibrated with ${anchors.length || DEFAULT_ANCHORS.length} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (fitRms!=null ? ` · global misfit ${fitRms.toFixed(1)} m (local correction on)` : "")
     : ($("flip").checked ? "Not calibrated: select a player, press Calibrate, click where they really are."
        : "Using built-in estimate (one point, 90° rotation assumed). For exact placement: select a player, press Calibrate, click their real position.");
 }
 solve(); calText();
 
 // ---------- state ----------
-let players = [], selected = null, calMode = false, auto = true;
+let players = [], selected = null, calMode = false;
 const markers = new Map();
 
 function busName(path){
@@ -194,7 +217,6 @@ function renderList(){
 
 function fit(){
   if(!players.length) return;
-  auto = true;
   const pts = players.map(toLatLng);
   if(pts.length===1) map.setView(pts[0], Math.max(map.getZoom(),15), {animate:false});
   else map.fitBounds(L.latLngBounds(pts).pad(0.3), {animate:false, maxZoom:16});
@@ -205,7 +227,7 @@ function select(id){
   const p = players.find(p=>p.id===id);
   if(p){ $("follow").checked=false; map.setView(toLatLng(p), Math.max(map.getZoom(),15)); }
 }
-$("list").onclick = e => { const el = e.target.closest(".p"); if(el) select(+el.dataset.id); };
+$("list").onclick = e => { const el = e.target.closest(".p"); if(!el) return; const p = players.find(p => String(p.id) === el.dataset.id); if(p) select(p.id); };
 
 // user interaction turns off auto-fit
 ["mousedown","wheel","touchstart"].forEach(ev => $("map").addEventListener(ev, ()=>{ $("follow").checked=false; }, {passive:true}));
@@ -251,24 +273,55 @@ $("reset").onclick = () => { anchors=[]; store.set("anchors4",[]); solve(); calT
 $("flip").onchange = () => { store.set("flip",$("flip").checked); anchors=[]; store.set("anchors4",[]); solve(); calText(); renderMarkers(); if($("follow").checked) fit(); };
 
 // ---------- polling ----------
+// URL priority: ?api=... in the page address > saved value > DEFAULT_URL.
+// If DEFAULT_URL changed since the visitor's last visit (new tunnel), the new default replaces the stale saved one.
+const qp = new URLSearchParams(location.search).get("api");
+if(qp){ store.set("url", qp); }
+else if(store.get("defSeen", null) !== DEFAULT_URL){ store.set("url", DEFAULT_URL); }
+store.set("defSeen", DEFAULT_URL);
 $("url").value = store.get("url", DEFAULT_URL);
-$("url").onchange = () => { store.set("url",$("url").value); poll(); };
+
+let timer = null, failures = 0, polling = false;
+const cleanUrl = () => $("url").value.trim();
+$("url").onchange = () => { store.set("url", cleanUrl()); failures = 0; poll(); };
+
+function schedule(){
+  clearTimeout(timer);
+  // back off 2s -> 4s -> 8s ... up to 30s while the server is unreachable; reset after a success
+  const delay = failures ? Math.min(POLL_MS * 2 ** failures, 30000) : POLL_MS;
+  timer = setTimeout(poll, delay);
+}
 
 async function poll(){
+  if(polling) return;           // never run two requests at once
+  polling = true;
+  clearTimeout(timer);
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 8000);
   try{
-    const res = await fetch($("url").value, {cache:"no-store"});
+    const res = await fetch(cleanUrl(), {cache:"no-store", signal:ctrl.signal});
     if(!res.ok) throw new Error("HTTP "+res.status);
     const data = await res.json();
-    players = data.filter(p => (typeof p.x==="number" && typeof p.y==="number") || (p.lat!=null && p.lon!=null));
-    $("st").className="status ok"; $("st").textContent="updated "+new Date().toLocaleTimeString();
+    if(!Array.isArray(data)) throw new Error("response is not a JSON list");
+    players = data.filter(p => p && ((typeof p.x==="number" && typeof p.y==="number") || (p.lat!=null && p.lon!=null)));
+    failures = 0;
+    $("st").className = "status ok"; $("st").textContent = "updated " + new Date().toLocaleTimeString();
     renderMarkers(); renderList();
     if($("follow").checked) fit();
   }catch(err){
-    $("st").className="status err";
-    $("st").textContent="can't reach server ("+err.message+"). Is the tunnel up and CORS enabled?";
+    failures++;
+    const msg = err.name==="AbortError" ? "timeout" : err.message;
+    $("st").className = "status err";
+    $("st").textContent = "can't reach server (" + msg + "). The tunnel is probably down or its URL changed " +
+      "(trycloudflare URLs change on every restart) - paste the new URL above. Retrying in " +
+      Math.round(Math.min(POLL_MS * 2 ** failures, 30000) / 1000) + "s.";
+  }finally{
+    clearTimeout(to);
+    polling = false;
+    schedule();
   }
 }
-poll(); setInterval(poll, POLL_MS);
+poll();
 </script>
 </body>
 </html>

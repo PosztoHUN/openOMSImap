@@ -63,7 +63,7 @@ const map = L.map("map", {zoomControl:true}).setView([47.4979, 19.0402], 12);
 const osmfr = L.tileLayer("https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", {
   subdomains: "abc", maxZoom: 20,
   attribution: "&copy; OpenStreetMap contributors, tiles by OpenStreetMap France"
-}).addTo(map);
+});
 const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 19, attribution: "Tiles &copy; Esri"
 });
@@ -71,7 +71,9 @@ const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/W
 const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
 });
-L.control.layers({"OpenStreetMap France": osmfr, "Esri Streets": esri, "OpenStreetMap (needs http)": osm}, null, {position:"topright"}).addTo(map);
+// Served over http(s) (e.g. GitHub Pages) -> standard OSM works; opened as a local file -> use OSM France.
+(location.protocol.startsWith("http") ? osm : osmfr).addTo(map);
+L.control.layers({"OpenStreetMap France": osmfr, "Esri Streets": esri, "OpenStreetMap": osm}, null, {position:"topright"}).addTo(map);
 
 // ---------- game coords -> lat/lon ----------
 // Game (x,y) is treated as metres. w = A*z + B (complex similarity), relative to a Budapest origin.

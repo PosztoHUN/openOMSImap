@@ -211,6 +211,14 @@ $("setll").onclick = () => {
   anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-2); store.set("anchors", anchors);
   solve(); calText(); renderMarkers(); renderList();
 };
+// Quick calibration: right-click (long-press on touch) the map where the selected player really is.
+map.on("contextmenu", e => {
+  const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
+  if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
+  anchors.push({z:zOf(p), w:[(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M]});
+  anchors = anchors.slice(-2); store.set("anchors", anchors);
+  solve(); calText(); renderMarkers(); renderList();
+});
 $("copy").onclick = async () => {
   const txt = JSON.stringify(anchors);
   try{ await navigator.clipboard.writeText(txt); $("calst").textContent = "Copied calibration: " + txt; }

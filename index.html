@@ -84,7 +84,7 @@ const O = {lat:47.4979, lon:19.0402}, M = 111320, KX = M*Math.cos(O.lat*Math.PI/
 const cmul = (a,b)=>[a[0]*b[0]-a[1]*b[1], a[0]*b[1]+a[1]*b[0]];
 const cdiv = (a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
 const csub = (a,b)=>[a[0]-b[0],a[1]-b[1]], cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]];
-let anchors = store.get("anchors3", []);   // [{z:[x,y], w:[east,north]}]
+let anchors = store.get("anchors4", []);   // [{z:[x,y], w:[east,north]}]
 $("flip").checked = store.get("flip", false);
 let A=[1,0], B=[0,0];
 
@@ -92,23 +92,37 @@ let A=[1,0], B=[0,0];
 // Replace it any time with a real calibration click.
 // Paste the output of the "Copy" button here so every visitor gets the same calibration.
 const ll2w = (lat,lon) => [(lon-O.lon)*KX, (lat-O.lat)*M];
-// Two real pairs (game x,y <-> real lat,lon) at the Örs vezér tere terminal; they fix scale + rotation for everyone.
+// Real pairs (game x,y <-> real lat,lon) near the Örs vezér tere terminal. All pairs are combined with a least-squares
+// fit (scale + rotation + shift), so small disagreements between the game map and OSM are averaged out.
 const DEFAULT_ANCHORS = [
   {z:[7986.6,249.0], w:ll2w(47.50178104795657, 19.135567859416135)},
-  {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)}
+  {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
+  {z:[7858.9,169.6], w:ll2w(47.500789612067635, 19.13693293424029)}
 ];
 const DEF = {z:[7986.6,249.0], w:[(19.135567859416135-O.lon)*KX, (47.50178104795657-O.lat)*M]};
 // Game axes are rotated vs. the real map: driving real south moves game x negative, so game +x = real north.
 // That is a +90° rotation (A = i). A single calibration point keeps this rotation; two distant points refine it.
 const ROT = [0,1];
+let fitRms = null;
 function solve(){
-  A=ROT; B=[0,0];
-  const list = anchors.length ? anchors : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : ($("flip").checked ? [] : [DEF]));
-  if(list.length>=2){
-    const p=list[list.length-2], q=list[list.length-1], dz=csub(q.z,p.z);
-    if(Math.hypot(dz[0],dz[1])>50){ A=cdiv(csub(q.w,p.w),dz); B=csub(p.w,cmul(A,p.z)); return; }
+  A=ROT; B=[0,0]; fitRms=null;
+  const list = anchors.length ? anchors : ($("flip").checked ? [] : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]));
+  const n = list.length;
+  if(n>=2){
+    const zm=[list.reduce((a,p)=>a+p.z[0],0)/n, list.reduce((a,p)=>a+p.z[1],0)/n];
+    const wm=[list.reduce((a,p)=>a+p.w[0],0)/n, list.reduce((a,p)=>a+p.w[1],0)/n];
+    let num=[0,0], den=0;
+    for(const p of list){
+      const dz=csub(p.z,zm), dw=csub(p.w,wm);
+      num=cadd(num, cmul(dw,[dz[0],-dz[1]])); den+=dz[0]*dz[0]+dz[1]*dz[1];
+    }
+    if(den>1250){            // points spread out by more than ~50 units
+      A=[num[0]/den, num[1]/den]; B=csub(wm,cmul(A,zm));
+      fitRms=Math.sqrt(list.reduce((a,p)=>{const e=csub(cadd(cmul(A,p.z),B),p.w);return a+e[0]*e[0]+e[1]*e[1];},0)/n);
+      return;
+    }
   }
-  if(list.length>=1){ const p=list[list.length-1]; B=csub(p.w,cmul(A,p.z)); }
+  if(n>=1){ const p=list[n-1]; B=csub(p.w,cmul(A,p.z)); }
 }
 const zOf = p => [p.x, $("flip").checked ? -p.y : p.y];
 function toLatLng(p){
@@ -119,7 +133,7 @@ function toLatLng(p){
 function calText(){
   const deg = Math.atan2(A[1],A[0])*180/Math.PI, sc = Math.hypot(A[0],A[1]);
   $("calst").textContent = (anchors.length || DEFAULT_ANCHORS.length)
-    ? `Calibrated with ${Math.min(anchors.length || DEFAULT_ANCHORS.length,2)} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°`
+    ? `Calibrated with ${anchors.length || DEFAULT_ANCHORS.length} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (fitRms!=null ? ` · avg misfit ${fitRms.toFixed(1)} m` : "")
     : ($("flip").checked ? "Not calibrated: select a player, press Calibrate, click where they really are."
        : "Using built-in estimate (one point, 90° rotation assumed). For exact placement: select a player, press Calibrate, click their real position.");
 }
@@ -203,7 +217,7 @@ map.on("click", e => {
   if(!calMode) return;
   const p = players.find(p=>p.id===selected); if(!p) return;
   const w = [(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M];
-  anchors.push({z:zOf(p), w}); anchors = anchors.slice(-2); store.set("anchors3", anchors);
+  anchors.push({z:zOf(p), w}); anchors = anchors.slice(-6); store.set("anchors4", anchors);
   calMode=false; $("cal").classList.remove("on"); $("map").classList.remove("cal");
   solve(); calText(); renderMarkers(); renderList();
 });
@@ -213,7 +227,7 @@ $("setll").onclick = () => {
   if(!m){ $("calst").textContent = "Enter coordinates like: 47.50179, 19.13557"; return; }
   if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
   const lat = +m[1], lon = +m[2];
-  anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-2); store.set("anchors3", anchors);
+  anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-6); store.set("anchors4", anchors);
   solve(); calText(); renderMarkers(); renderList();
 };
 // Quick calibration: right-click (long-press on touch) the map where the selected player really is.
@@ -221,7 +235,7 @@ map.on("contextmenu", e => {
   const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
   if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
   anchors.push({z:zOf(p), w:[(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M]});
-  anchors = anchors.slice(-2); store.set("anchors3", anchors);
+  anchors = anchors.slice(-6); store.set("anchors4", anchors);
   solve(); calText(); renderMarkers(); renderList();
 });
 $("copy").onclick = async () => {
@@ -229,8 +243,8 @@ $("copy").onclick = async () => {
   try{ await navigator.clipboard.writeText(txt); $("calst").textContent = "Copied calibration: " + txt; }
   catch(e){ prompt("Copy this calibration:", txt); }
 };
-$("reset").onclick = () => { anchors=[]; store.set("anchors3",[]); solve(); calText(); renderMarkers(); };
-$("flip").onchange = () => { store.set("flip",$("flip").checked); anchors=[]; store.set("anchors3",[]); solve(); calText(); renderMarkers(); if($("follow").checked) fit(); };
+$("reset").onclick = () => { anchors=[]; store.set("anchors4",[]); solve(); calText(); renderMarkers(); };
+$("flip").onchange = () => { store.set("flip",$("flip").checked); anchors=[]; store.set("anchors4",[]); solve(); calText(); renderMarkers(); if($("follow").checked) fit(); };
 
 // ---------- polling ----------
 $("url").value = store.get("url", DEFAULT_URL);

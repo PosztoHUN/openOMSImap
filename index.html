@@ -41,7 +41,7 @@
   <input type="text" id="url" placeholder="Players endpoint URL">
   <label><input type="checkbox" id="follow" checked> Auto-fit to players</label>
   <label><input type="checkbox" id="flip"> Flip Y axis</label>
-  <label><input type="checkbox" id="showstops" checked> Show reference stops (click one, then right-click its real spot)</label>
+  <label><input type="checkbox" id="showstops" checked> Show reference stops (green = real position, red = estimated; click one, then right-click its real spot)</label>
   <div class="row"><button id="cal">📍 Calibrate</button><button id="reset">Reset</button><button id="copy">Copy</button></div>
   <div class="row"><input type="text" id="ll" placeholder="real lat, lon (paste from Google Maps)"><button id="setll" style="flex:none">Set</button></div>
   <div id="calst" class="status"></div>
@@ -121,7 +121,26 @@ const DEFAULT_ANCHORS = [
   {z:[4454.2,1183.4], w:ll2w(47.46299865191307, 19.13177636126686)},
   {z:[3796.5,1030.7], w:ll2w(47.45972016239977, 19.139669934783964)},
   {z:[3770.7,818.8], w:ll2w(47.46101019851618, 19.141907009174265)},
-  {z:[3854.7,562.1], w:ll2w(47.46323214726648, 19.143520774286984)}
+  {z:[3854.7,562.1], w:ll2w(47.46323214726648, 19.143520774286984)},
+  // --- REAL stop positions (BKK Futár / Wikidata / OSM), covering Vecsés, the airport, Pestszentlőrinc and Pestszentimre ---
+  {z:[-6005.3,-495.1], w:ll2w(47.408454, 19.256438)},   // Vecsés vasútállomás: Wikidata
+  {z:[-5791.1,479.0], w:ll2w(47.401825, 19.245844)},   // Airport Hotel Stáció: OSM/Tripadvisor
+  {z:[-5081.8,-2026.8], w:ll2w(47.423634, 19.26266)},   // Aeropark: museum point (Tripadvisor); bus stop is a few hundred m away
+  {z:[-5038.0,-1015.3], w:ll2w(47.416816, 19.251653)},   // Market Central: BKK Futár stop 050185
+  {z:[-4815.8,-436.7], w:ll2w(47.41472, 19.24417)},   // Airport Hotel Budapest: hotel website (DMS)
+  {z:[-4275.2,-2722.1], w:ll2w(47.432898, 19.261431)},   // Airport 2: BKK Futár stop F04599
+  {z:[-3338.7,-519.9], w:ll2w(47.423843, 19.234636)},   // Ganztelep: BKK Futár stop F03795
+  {z:[-1259.0,-4190.6], w:ll2w(47.467968, 19.244845)},   // Rákoshegy: Wikidata
+  {z:[-2213.1,-167.4], w:ll2w(47.428688, 19.219013)},   // Béke tér: BKK Futár stop F03790
+  {z:[-2039.9,-1019.8], w:ll2w(47.43738, 19.22364)},   // Ferihegy: OSM node 423222597
+  {z:[-1981.9,1471.2], w:ll2w(47.4132, 19.201482)},   // Alacskai: BKK Futár stop F03861
+  {z:[-1018.8,3763.2], w:ll2w(47.399097, 19.205631)},   // Benjámin: BKK Futár stop F03800
+  {z:[-893.0,-822.2], w:ll2w(47.444049, 19.212756)},   // Szemeretelep: Wikidata
+  {z:[359.8,2683.8], w:ll2w(47.426744, 19.16114)},   // Garázs: BKK Futár stop 008472
+  {z:[-9.8,1406.7], w:ll2w(47.432101, 19.185643)},   // Gilice: BKK Futár stop F03638
+  {z:[-14.4,468.7], w:ll2w(47.440006, 19.18618)},   // Szarvas 50VP: BKK Futár stop F03719
+  {z:[164.0,367.7], w:ll2w(47.441567, 19.186136)},   // Szarvas 183: BKK Futár stop F03711
+  {z:[6786.3,98.2], w:ll2w(47.491917, 19.140139)},   // Élessarok: BKK stop Élessarok
 
   // Left out: they disagree with the three above by ~13 m. Re-add after re-measuring:
   // {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
@@ -133,39 +152,62 @@ const DEF = {z:[7986.6,249.0], w:[(19.135567859416135-O.lon)*KX, (47.50178104795
 // That is a +90° rotation (A = i). A single calibration point keeps this rotation; two distant points refine it.
 const ROT = [0,1];
 let fitRms = null;
-// The game map is not a rigid copy of OSM: its local rotation/scale changes from area to area (about 100 deg near the
-// terminal, about 135 deg around y>1000). One global similarity therefore misses by hundreds of metres. Instead, every
-// position gets its OWN similarity (scale + rotation + shift), fitted to the anchors with weights that fall off with
-// distance (moving least squares). Far from all anchors it behaves like the nearest anchors' local fit.
-const MLS_ALPHA = 3, MLS_EPS = 1e5;   // weight = (dist^2 + EPS)^-ALPHA ; larger EPS = smoother, less exact
-const MLS_MIN = 4;                    // fewer anchors than this -> plain global fit
-// Built-in anchors + the ones a visitor adds in this browser (flip mode: only the visitor's own, the built-ins assume the normal Y axis).
+// The game map is not a rigid copy of OSM: rotation/scale drift from area to area (about 100 deg near the terminal, about
+// 135 deg elsewhere, and the far south/east is bent further). The old "local similarity" fit extrapolated the Kispest/Örs
+// rotation to places 5-10 km away and missed by 1-5 km. Now: one global similarity (scale+rotation+shift) as the base, plus a
+// thin-plate-spline (TPS) correction that is pulled through every anchor. Between anchors it bends smoothly, far from all
+// anchors it falls back to the global similarity instead of wild extrapolation. Verified real stop positions are anchors.
+const TPS_LAMBDA = 0.1;      // smoothing in km^2 (0 = pass exactly through every anchor, larger = stiffer)
+let tps = null, tpsRms = null;
 let stopLayer = null;
 const currentList = () => $("flip").checked ? anchors.slice() : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]).concat(anchors);
-function localSim(z){
-  const list = currentList();
-  if(list.length < MLS_MIN) return {A, B};
-  let sw=0, zx=0, zy=0, wx=0, wy=0;
-  const wts = list.map(q => { const dx=z[0]-q.z[0], dy=z[1]-q.z[1]; return Math.pow(dx*dx+dy*dy+MLS_EPS, -MLS_ALPHA); });
-  list.forEach((q,i) => { const t=wts[i]; sw+=t; zx+=t*q.z[0]; zy+=t*q.z[1]; wx+=t*q.w[0]; wy+=t*q.w[1]; });
-  const zc=[zx/sw, zy/sw], wc=[wx/sw, wy/sw];
-  let nr=0, ni=0, den=0;
-  list.forEach((q,i) => {
-    const t=wts[i], dz=csub(q.z,zc), dw=csub(q.w,wc), m=cmul(dw,[dz[0],-dz[1]]);
-    nr+=t*m[0]; ni+=t*m[1]; den+=t*(dz[0]*dz[0]+dz[1]*dz[1]);
-  });
-  if(!(den>0)) return {A, B};
-  const LA=[nr/den, ni/den];
-  return {A:LA, B:csub(wc, cmul(LA,zc))};
+const tpsU = r2 => r2 > 1e-12 ? 0.5*r2*Math.log(r2) : 0;   // r^2 ln r
+function buildTPS(list){
+  tps = null; tpsRms = null;
+  const n = list.length;
+  if(n < 4) return;
+  const zs = list.map(q => [q.z[0]/1000, q.z[1]/1000]);
+  const R = list.map((q,i) => { const e = csub(q.w, cadd(cmul(A,q.z), B)); return [e[0]/1000, e[1]/1000]; });   // residual of global fit, km
+  const N = n+3, L = Array.from({length:N}, () => new Float64Array(N+2));
+  for(let i=0;i<n;i++){
+    for(let j=0;j<n;j++){ const dx=zs[i][0]-zs[j][0], dy=zs[i][1]-zs[j][1]; L[i][j] = tpsU(dx*dx+dy*dy) + (i===j?TPS_LAMBDA:0); }
+    L[i][n]=1; L[i][n+1]=zs[i][0]; L[i][n+2]=zs[i][1];
+    L[n][i]=1; L[n+1][i]=zs[i][0]; L[n+2][i]=zs[i][1];
+    L[i][N]=R[i][0]; L[i][N+1]=R[i][1];
+  }
+  // Gaussian elimination with partial pivoting
+  for(let c=0;c<N;c++){
+    let p=c; for(let r=c+1;r<N;r++) if(Math.abs(L[r][c])>Math.abs(L[p][c])) p=r;
+    if(Math.abs(L[p][c])<1e-12) return;                // degenerate (e.g. duplicate anchors) -> keep global fit only
+    if(p!==c){ const t=L[p]; L[p]=L[c]; L[c]=t; }
+    for(let r=c+1;r<N;r++){ const f=L[r][c]/L[c][c]; if(f===0) continue; for(let k=c;k<N+2;k++) L[r][k]-=f*L[c][k]; }
+  }
+  const X = Array.from({length:N}, () => [0,0]);
+  for(let r=N-1;r>=0;r--){
+    for(let col=0;col<2;col++){ let v=L[r][N+col]; for(let k=r+1;k<N;k++) v-=L[r][k]*X[k][col]; X[r][col]=v/L[r][r]; }
+  }
+  tps = {zs, wt:X.slice(0,n), a:X.slice(n)};
+  let sum=0; for(const q of list){ const e=csub(warpZ(q.z), q.w); sum+=e[0]*e[0]+e[1]*e[1]; }
+  tpsRms = Math.sqrt(sum/n);
 }
-function localMisfit(){
-  const list = currentList();
-  if(!list.length) return null;
-  let sum=0;
-  for(const q of list){ const s=localSim(q.z), e=csub(cadd(cmul(s.A,q.z),s.B), q.w); sum+=e[0]*e[0]+e[1]*e[1]; }
-  return Math.sqrt(sum/list.length);
+// game (x,y) -> east/north metres relative to O
+function warpZ(z){
+  const g = cadd(cmul(A,z), B);
+  if(!tps) return g;
+  const x=z[0]/1000, y=z[1]/1000;
+  let dx = tps.a[0][0] + tps.a[1][0]*x + tps.a[2][0]*y, dy = tps.a[0][1] + tps.a[1][1]*x + tps.a[2][1]*y;
+  for(let i=0;i<tps.zs.length;i++){
+    const ex=x-tps.zs[i][0], ey=y-tps.zs[i][1], u=tpsU(ex*ex+ey*ey);
+    dx += tps.wt[i][0]*u; dy += tps.wt[i][1]*u;
+  }
+  return [g[0]+dx*1000, g[1]+dy*1000];
 }
-function solve(){ solveFit(); if(stopLayer) renderStops(); }
+// local rotation of the game +x axis on the real map (for the heading arrows), complex number like the old localSim().A
+function localA(z){
+  const a=warpZ(z), b=warpZ([z[0]+10, z[1]]);
+  return [(b[0]-a[0])/10, (b[1]-a[1])/10];
+}
+function solve(){ solveFit(); buildTPS(currentList()); if(stopLayer) renderStops(); }
 function solveFit(){
   A=ROT; B=[0,0]; fitRms=null;
   const list = currentList();
@@ -189,14 +231,13 @@ function solveFit(){
 const zOf = p => [p.x, $("flip").checked ? -p.y : p.y];
 function toLatLng(p){
   if(p.lat!=null && p.lon!=null) return [p.lat,p.lon];
-  const z = zOf(p), sm = localSim(z);
-  const w = cadd(cmul(sm.A,z), sm.B);
+  const z = zOf(p), w = warpZ(z);
   return [O.lat + w[1]/M, O.lon + w[0]/KX];
 }
 function calText(){
   const deg = Math.atan2(A[1],A[0])*180/Math.PI, sc = Math.hypot(A[0],A[1]);
   $("calst").textContent = currentList().length
-    ? `Calibrated with ${currentList().length} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (fitRms!=null ? ` · global misfit ${fitRms.toFixed(1)} m` : "") + (currentList().length>=MLS_MIN ? ` · local fit misfit ${localMisfit().toFixed(1)} m (position uses the local fit)` : "")
+    ? `Calibrated with ${currentList().length} point(s) · global scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (tps ? ` · spline warp, error at anchors ${tpsRms.toFixed(0)} m` : "")
     : ($("flip").checked ? "Not calibrated: select a player, press Calibrate, click where they really are."
        : "Using built-in estimate (one point, 90° rotation assumed). For exact placement: select a player, press Calibrate, click their real position.");
 }
@@ -207,16 +248,16 @@ solve(); calText();
 // CURRENT calibration puts each stop. To fix an area without a player: click a dot, then right-click (long-press) the stop's
 // real position on the map -> that becomes a new anchor.
 const STOPS = [
-  ["Aeropark", -5081.8, -2026.8],
+  ["Aeropark", -5081.8, -2026.8, 47.423634, 19.26266],
   ["Aeropark", -5076.0, -2027.8],
   ["Aeropark", -5069.4, -2028.7],
   ["Aeropark", -5062.2, -2030.8],
   ["Aeropark", -5055.3, -2031.8],
   ["Aeropark", -5048.3, -2032.9],
-  ["Airport Hotel Budapest", -4815.8, -436.7],
-  ["Airport Hotel Stáció", -5791.1, 479.0],
-  ["Alacskai úti lakótelep (182, 282E)", -1981.9, 1471.2],
-  ["Dél-Pesti autóbuszgarázs (900, 980)", 359.8, 2683.8],
+  ["Airport Hotel Budapest", -4815.8, -436.7, 47.41472, 19.24417],
+  ["Airport Hotel Stáció", -5791.1, 479.0, 47.401825, 19.245844],
+  ["Alacskai úti lakótelep (182, 282E)", -1981.9, 1471.2, 47.4132, 19.201482],
+  ["Dél-Pesti autóbuszgarázs (900, 980)", 359.8, 2683.8, 47.426744, 19.16114],
   ["Dél-Pesti autóbuszgarázs (csuklós)", 459.1, 2831.9],
   ["Dél-Pesti autóbuszgarázs (csuklós)", 500.0, 2830.6],
   ["Dél-Pesti autóbuszgarázs (csuklós)", 588.8, 2825.0],
@@ -230,9 +271,9 @@ const STOPS = [
   ["Dél-Pesti autóbuszgarázs (szóló)", 640.2, 2788.7],
   ["Dél-Pesti autóbuszgarázs (szóló)", 663.7, 2769.6],
   ["Dél-Pesti autóbuszgarázs (szóló)", 703.0, 2770.8],
-  ["Ferihegy vasútállomás (50VP)", -2039.9, -1019.8],
-  ["Ganztelep, Mednyánszky utca (193E)", -3338.7, -519.9],
-  ["Gilice tér (182A)", -9.8, 1406.7],
+  ["Ferihegy vasútállomás (50VP)", -2039.9, -1019.8, 47.43738, 19.22364],
+  ["Ganztelep, Mednyánszky utca (193E)", -3338.7, -519.9, 47.423843, 19.234636],
+  ["Gilice tér (182A)", -9.8, 1406.7, 47.432101, 19.185643],
   ["Határ út M (200E)", 4765.4, 1312.5],
   ["Határ út M (M3 metrópótló)", 4914.7, 1343.3],
   ["Határ út M (M3 metrópótló)", 4961.2, 1329.8],
@@ -262,22 +303,22 @@ const STOPS = [
   ["Kőbánya-Kispest M (tárolóhely)", 3465.3, 340.8],
   ["Kőbánya-Kispest M (tárolóhely)", 3470.9, 332.2],
   ["Liszt Ferenc Airport 2 (200E, 900)", -4285.2, -2751.3],
-  ["Liszt Ferenc Airport 2 (200E, 900)", -4275.2, -2722.1],
-  ["Pestszentimre, Benjámin utca (184, 284E)", -1018.8, 3763.2],
-  ["Pestszentlörinc, Béke tér (50VP)", -2213.1, -167.4],
-  ["Pestszentlörinc, Szarvas csárda tér (183)", 164.0, 367.7],
+  ["Liszt Ferenc Airport 2 (200E, 900)", -4275.2, -2722.1, 47.432898, 19.261431],
+  ["Pestszentimre, Benjámin utca (184, 284E)", -1018.8, 3763.2, 47.399097, 19.205631],
+  ["Pestszentlörinc, Béke tér (50VP)", -2213.1, -167.4, 47.428688, 19.219013],
+  ["Pestszentlörinc, Szarvas csárda tér (183)", 164.0, 367.7, 47.441567, 19.186136],
   ["Pestszentlörinc, Szarvas csárda tér (183)", 185.1, 367.7],
-  ["Rákoshegy vasútállomás (98E, 980)", -1259.0, -4190.6],
+  ["Rákoshegy vasútállomás (98E, 980)", -1259.0, -4190.6, 47.467968, 19.244845],
   ["Rákoshegy vasútállomás (98E, 980)", -1213.8, -4163.1],
-  ["Szarvas csárda tér (50VP)", -14.4, 468.7],
-  ["Szemeretelep vasútállomás (183)", -893.0, -822.2],
+  ["Szarvas csárda tér (50VP)", -14.4, 468.7, 47.440006, 19.18618],
+  ["Szemeretelep vasútállomás (183)", -893.0, -822.2, 47.444049, 19.212756],
   ["Vecsés, Erzsébet tér (576, 577, 578)", -6700.4, 26.0],
   ["Vecsés, Erzsébet tér (576, 577, 578)", -6678.7, 54.7],
   ["Vecsés, Erzsébet tér (576, 577, 578)", -6644.7, 56.7],
-  ["Vecsés, Market Central Ferihegy (193E)", -5038.0, -1015.3],
+  ["Vecsés, Market Central Ferihegy (193E)", -5038.0, -1015.3, 47.416816, 19.251653],
   ["Vecsés, vasútállomás (100a vonatpótló)", -6011.0, -489.2],
-  ["Vecsés, vasútállomás (100a vonatpótló)", -6005.3, -495.1],
-  ["Élessarok (3VP, 28-37VP)", 6786.3, 98.2],
+  ["Vecsés, vasútállomás (100a vonatpótló)", -6005.3, -495.1, 47.408454, 19.256438],
+  ["Élessarok (3VP, 28-37VP)", 6786.3, 98.2, 47.491917, 19.140139],
   ["Örs vezér tere M+H (3VP)", 7935.1, 198.4],
   ["Örs vezér tere M+H (85, 85E)", 7957.4, 248.5],
   ["Örs vezér tere M+H (hátsó pihenö)", 7774.8, 293.3],
@@ -289,9 +330,10 @@ function renderStops(){
   stopLayer.clearLayers();
   if(!$("showstops").checked) return;
   STOPS.forEach((s,i) => {
-    const on = i===selStop;
-    const m = L.circleMarker(toLatLng({x:s[1], y:s[2]}), {radius:on?8:5, color:"#000", weight:1, fillColor:on?"#fff":"#e5383b", fillOpacity:.9, bubblingMouseEvents:false});
-    m.bindTooltip(s[0]);
+    const on = i===selStop, real = s.length>3 && !$("flip").checked;
+    const ll = real ? [s[3], s[4]] : toLatLng({x:s[1], y:s[2]});
+    const m = L.circleMarker(ll, {radius:on?8:5, color:"#000", weight:1, fillColor:on?"#fff":(real?"#3fb950":"#e5383b"), fillOpacity:.9, bubblingMouseEvents:false});
+    m.bindTooltip(s[0] + (real ? "  (real position)" : "  (estimated from the warp)"));
     m.on("click", () => selectStop(i));
     stopLayer.addLayer(m);
   });
@@ -326,7 +368,7 @@ function icon(p){
   const col = p.on_foot ? "#4cc9f0" : "#ffb703";
   let h = p.heading||0;
   if($("flip").checked) h = 180 - h;
-  const LA = (typeof p.x==='number' && typeof p.y==='number') ? localSim(zOf(p)).A : A;
+  const LA = (typeof p.x==='number' && typeof p.y==='number') ? localA(zOf(p)) : A;
   h -= Math.atan2(LA[1],LA[0])*180/Math.PI;
   const label = p.name + (!p.on_foot && p.line ? ` · ${p.line}` + (p.destination ? ` → ${p.destination}` : "") : "");
   return L.divIcon({

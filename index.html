@@ -97,7 +97,7 @@ const ll2w = (lat,lon) => [(lon-O.lon)*KX, (lat-O.lat)*M];
 const DEFAULT_ANCHORS = [
   {z:[7986.6,249.0], w:ll2w(47.50178104795657, 19.135567859416135)},
   {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
-  {z:[7858.9,169.6], w:ll2w(47.500789612067635, 19.13693293424029)}
+  {z:[7858.9,169.6], w:ll2w(47.500643, 19.136644)}
 ];
 const DEF = {z:[7986.6,249.0], w:[(19.135567859416135-O.lon)*KX, (47.50178104795657-O.lat)*M]};
 // Game axes are rotated vs. the real map: driving real south moves game x negative, so game +x = real north.

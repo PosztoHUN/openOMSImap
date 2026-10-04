@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Délpest 5.2 - openOMSI</title>
+<title>Online Players – Budapest</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{--bg:#0f1419;--panel:#171e26;--text:#e6edf3;--mute:#8b98a5;--acc:#ffb703;--foot:#4cc9f0}
@@ -124,7 +124,6 @@ const DEFAULT_ANCHORS = [
   {z:[-1263.7,-4191.9], w:ll2w(47.467968, 19.244845)},   // Rákoshegy: Wikidata
   {z:[-2208.4,-167.0], w:ll2w(47.428688, 19.219013)},   // Béke tér: BKK Futár stop F03790
   {z:[-2039.9,-1014.3], w:ll2w(47.43738, 19.22364)},   // Ferihegy: OSM node 423222597
-  {z:[-1979.2,1475.3], w:ll2w(47.4132, 19.201482)},   // Alacskai: BKK Futár stop F03861
   {z:[-1020.3,3762.6], w:ll2w(47.399097, 19.205631)},   // Benjámin: BKK Futár stop F03800
   {z:[359.8,2683.8], w:ll2w(47.426744, 19.16114)},   // Garázs: BKK Futár stop 008472
   {z:[-13.9,1411.3], w:ll2w(47.432101, 19.185643)},   // Gilice: BKK Futár stop F03638
@@ -153,7 +152,6 @@ const DEFAULT_ANCHORS = [
   {z:[1787.9,-214.0], w:ll2w(47.457379, 19.177716)},   // CONFIRMED Felsőcsatári út 200E = BKK F01545 (200E stop)
   {z:[-1250.8,-3848.0], w:ll2w(47.465955, 19.242066)},   // ady endre utca
   {z:[-2116.4,1049.0], w:ll2w(47.416941, 19.206506)},   // alacskai ut
-  {z:[-1957.0,1413.1], w:ll2w(47.413543, 19.201695)},   // alacskai uti lakotelep
   {z:[3791.1,-614.2], w:ll2w(47.468991, 19.160733)},   // banyato utca
   {z:[-2242.2,-157.3], w:ll2w(47.429206, 19.218312)},   // beke ter
   {z:[-2020.4,-110.6], w:ll2w(47.430006, 19.215624)},   // beke ter
@@ -275,6 +273,13 @@ const DEFAULT_ANCHORS = [
   {z:[-2041.7,-1119.2], w:ll2w(47.437667, 19.223377)},  // Ferihegy vasutallomas 200E / 200Em = 007928 (200E towards the airport)
   {z:[-1954.8,-1137.9], w:ll2w(47.438423, 19.222716)},  // Ferihegy vasutallomas 200E2 = 007927 (200E towards Hatar ut M)
 
+  // --- FIX (reported wrong): Alacskai uti lakotelep + Damjanich utca, matched via real 166 / 182 / 254E / 255E stop sequences ---
+  {z:[-1962.0,1387.0], w:ll2w(47.414213, 19.201939)},   // Alacskai uti lakotelep 166 = F03859
+  {z:[-1952.0,1439.2], w:ll2w(47.413746, 19.201487)},   // Alacskai uti lakotelep 55 = F03860
+  {z:[-1979.2,1475.3], w:ll2w(47.413188, 19.201433)},   // Alacskai uti ltp = F03861 (182 / 282E terminus)
+  {z:[-2004.0,1483.5], w:ll2w(47.413026, 19.201923)},   // Alacskai uti ltp 2 + 254M = F03862 (254E / 255E)
+  {z:[-1841.8,1677.7], w:ll2w(47.411502, 19.197983)},   // Damjanich utca = F03653
+
   // Left out: they disagree with the three above by ~13 m. Re-add after re-measuring:
   // {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
   // {z:[7858.9,169.6], w:ll2w(47.50089818079121, 19.137008533410782)},
@@ -383,11 +388,11 @@ const STOPS = [
   ["Airport Hotel Stáció FEL", -5812.9, 480.7],
   ["Airport Hotel Stáció LE", -5806.5, 480.8],
   ["Alacskai út", -2116.4, 1049.0, 47.416941, 19.206506],
-  ["Alacskai úti lakótelep 166", -1962.0, 1387.0],
-  ["Alacskai úti lakótelep 55", -1952.0, 1439.2],
-  ["Alacskai úti ltp", -1979.2, 1475.3],
-  ["Alacskai úti ltp 2", -2002.7, 1484.1],
-  ["Alacskai úti ltp 254M", -2005.4, 1483.0],
+  ["Alacskai úti lakótelep 166", -1962.0, 1387.0, 47.414213, 19.201939],
+  ["Alacskai úti lakótelep 55", -1952.0, 1439.2, 47.413746, 19.201487],
+  ["Alacskai úti ltp", -1979.2, 1475.3, 47.413188, 19.201433],
+  ["Alacskai úti ltp 2", -2002.7, 1484.1, 47.413026, 19.201923],
+  ["Alacskai úti ltp 254M", -2005.4, 1483.0, 47.413026, 19.201923],
   ["Bajcsy-Zsilinszky utca", -1298.9, 94.5],
   ["Bajcsy-Zsilinszky utca", -1287.0, 109.8],
   ["Bajcsy-Zsilinszky utca", -1266.3, 106.8],
@@ -424,7 +429,7 @@ const STOPS = [
   ["Csősztorony", 5791.4, 33.4],
   ["Dalmady Győző utca", -717.8, 571.1],
   ["Dalmady Győző utca 2", -731.7, 545.8],
-  ["Damjanich utca", -1841.8, 1677.7],
+  ["Damjanich utca", -1841.8, 1677.7, 47.411502, 19.197983],
   ["Dobozi utca", 99.1, 848.4],
   ["Dobozi utca 2", 81.8, 886.0],
   ["Duna utca", -2111.5, -596.8],

@@ -59,15 +59,19 @@ const store = {
 
 // ---------- map ----------
 const map = L.map("map", {zoomControl:true}).setView([47.4979, 19.0402], 12);
-const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-  subdomains: "abcd", maxZoom: 20,
-  attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+// Same OpenStreetMap data (stops, lanes, labels), no API key. Switch layers top-right if one fails.
+const osmfr = L.tileLayer("https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", {
+  subdomains: "abc", maxZoom: 20,
+  attribution: "&copy; OpenStreetMap contributors, tiles by OpenStreetMap France"
 }).addTo(map);
+const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19, attribution: "Tiles &copy; Esri"
+});
 // OSM's own server blocks pages opened from a file:// path (no Referer); it works if the page is served over http(s).
 const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
 });
-L.control.layers({"Standard (CARTO Voyager)": carto, "OpenStreetMap": osm}, null, {position:"topright"}).addTo(map);
+L.control.layers({"OpenStreetMap France": osmfr, "Esri Streets": esri, "OpenStreetMap (needs http)": osm}, null, {position:"topright"}).addTo(map);
 
 // ---------- game coords -> lat/lon ----------
 // Game (x,y) is treated as metres. w = A*z + B (complex similarity), relative to a Budapest origin.

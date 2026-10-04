@@ -84,14 +84,19 @@ const O = {lat:47.4979, lon:19.0402}, M = 111320, KX = M*Math.cos(O.lat*Math.PI/
 const cmul = (a,b)=>[a[0]*b[0]-a[1]*b[1], a[0]*b[1]+a[1]*b[0]];
 const cdiv = (a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
 const csub = (a,b)=>[a[0]-b[0],a[1]-b[1]], cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]];
-let anchors = store.get("anchors2", []);   // [{z:[x,y], w:[east,north]}]
+let anchors = store.get("anchors3", []);   // [{z:[x,y], w:[east,north]}]
 $("flip").checked = store.get("flip", false);
 let A=[1,0], B=[0,0];
 
 // Built-in anchor: game (7986.6, 249.0) = 47.501781, 19.135568 (real position at the Örs vezér tere terminal, given by the player).
 // Replace it any time with a real calibration click.
 // Paste the output of the "Copy" button here so every visitor gets the same calibration.
-const DEFAULT_ANCHORS = [];
+const ll2w = (lat,lon) => [(lon-O.lon)*KX, (lat-O.lat)*M];
+// Two real pairs (game x,y <-> real lat,lon) at the Örs vezér tere terminal; they fix scale + rotation for everyone.
+const DEFAULT_ANCHORS = [
+  {z:[7986.6,249.0], w:ll2w(47.50178104795657, 19.135567859416135)},
+  {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)}
+];
 const DEF = {z:[7986.6,249.0], w:[(19.135567859416135-O.lon)*KX, (47.50178104795657-O.lat)*M]};
 // Game axes are rotated vs. the real map: driving real south moves game x negative, so game +x = real north.
 // That is a +90° rotation (A = i). A single calibration point keeps this rotation; two distant points refine it.
@@ -198,7 +203,7 @@ map.on("click", e => {
   if(!calMode) return;
   const p = players.find(p=>p.id===selected); if(!p) return;
   const w = [(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M];
-  anchors.push({z:zOf(p), w}); anchors = anchors.slice(-2); store.set("anchors2", anchors);
+  anchors.push({z:zOf(p), w}); anchors = anchors.slice(-2); store.set("anchors3", anchors);
   calMode=false; $("cal").classList.remove("on"); $("map").classList.remove("cal");
   solve(); calText(); renderMarkers(); renderList();
 });
@@ -208,7 +213,7 @@ $("setll").onclick = () => {
   if(!m){ $("calst").textContent = "Enter coordinates like: 47.50179, 19.13557"; return; }
   if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
   const lat = +m[1], lon = +m[2];
-  anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-2); store.set("anchors2", anchors);
+  anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-2); store.set("anchors3", anchors);
   solve(); calText(); renderMarkers(); renderList();
 };
 // Quick calibration: right-click (long-press on touch) the map where the selected player really is.
@@ -216,7 +221,7 @@ map.on("contextmenu", e => {
   const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
   if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
   anchors.push({z:zOf(p), w:[(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M]});
-  anchors = anchors.slice(-2); store.set("anchors2", anchors);
+  anchors = anchors.slice(-2); store.set("anchors3", anchors);
   solve(); calText(); renderMarkers(); renderList();
 });
 $("copy").onclick = async () => {
@@ -224,8 +229,8 @@ $("copy").onclick = async () => {
   try{ await navigator.clipboard.writeText(txt); $("calst").textContent = "Copied calibration: " + txt; }
   catch(e){ prompt("Copy this calibration:", txt); }
 };
-$("reset").onclick = () => { anchors=[]; store.set("anchors2",[]); solve(); calText(); renderMarkers(); };
-$("flip").onchange = () => { store.set("flip",$("flip").checked); anchors=[]; store.set("anchors2",[]); solve(); calText(); renderMarkers(); if($("follow").checked) fit(); };
+$("reset").onclick = () => { anchors=[]; store.set("anchors3",[]); solve(); calText(); renderMarkers(); };
+$("flip").onchange = () => { store.set("flip",$("flip").checked); anchors=[]; store.set("anchors3",[]); solve(); calText(); renderMarkers(); if($("follow").checked) fit(); };
 
 // ---------- polling ----------
 $("url").value = store.get("url", DEFAULT_URL);

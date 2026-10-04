@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Online Players – Budapest</title>
+<title>Délpest 5.2 - openOMSI</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{--bg:#0f1419;--panel:#171e26;--text:#e6edf3;--mute:#8b98a5;--acc:#ffb703;--foot:#4cc9f0}
@@ -16,21 +16,17 @@
   .status.err::before{content:"● ";color:#f85149}
   input[type=text]{width:100%;padding:6px;background:var(--bg);color:var(--text);border:1px solid #2b3643;border-radius:6px}
   label{font-size:12px;color:var(--mute);display:flex;gap:6px;align-items:center}
-  button{background:#26323f;color:var(--text);border:1px solid #2b3643;border-radius:6px;padding:6px 8px;cursor:pointer}
-  button.on{background:var(--acc);color:#000}
-  .row{display:flex;gap:6px}.row button{flex:1}
   .p{padding:8px;border-radius:8px;background:var(--bg);cursor:pointer;border-left:3px solid var(--acc)}
   .p.foot{border-color:var(--foot)}
   .p.sel{outline:1px solid #fff}
   .p b{display:block}
   .p small{color:var(--mute)}
-  .row input{flex:1;min-width:0}
   main{flex:1;position:relative}
   #map{position:absolute;inset:0}
-  #map.cal{cursor:crosshair}
   .mk{position:relative;width:26px;height:26px}
   .mk svg{display:block}
-  .lb{position:absolute;left:28px;top:4px;white-space:nowrap;background:rgba(0,0,0,.75);color:#fff;font:bold 12px system-ui;padding:2px 6px;border-radius:4px}
+  .lb{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);white-space:nowrap;text-align:left;line-height:1.35;background:rgba(0,0,0,.8);color:#fff;font:12px/1.35 system-ui,sans-serif;padding:4px 8px;border-radius:5px;pointer-events:none}
+  .lb b{font-weight:700}
   @media(max-width:700px){body{flex-direction:column-reverse}aside{width:100%;max-height:45vh}main{min-height:50vh}}
 </style>
 </head>
@@ -38,20 +34,17 @@
 <aside>
   <h1>🚌 Online players (<span id="n">0</span>)</h1>
   <div id="st" class="status">connecting…</div>
-  <input type="text" id="url" placeholder="Players endpoint URL">
-  <label><input type="checkbox" id="follow" checked> Auto-fit to players</label>
-  <label><input type="checkbox" id="flip"> Flip Y axis</label>
-  <label><input type="checkbox" id="showstops" checked> Show reference stops (green = real position, red = estimated; click one, then right-click its real spot)</label>
-  <div class="row"><button id="cal">📍 Calibrate</button><button id="reset">Reset</button><button id="copy">Copy</button></div>
-  <div class="row"><input type="text" id="ll" placeholder="real lat, lon (paste from Google Maps)"><button id="setll" style="flex:none">Set</button></div>
-  <div id="calst" class="status"></div>
+  <label for="url">Join link</label>
+  <input type="text" id="url" placeholder="Join link">
+  <label><input type="checkbox" id="showstops" checked> Show reference stops (green = real position, red = estimated)</label>
   <div id="list"></div>
 </aside>
 <main><div id="map"></div></main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const DEFAULT_URL = "https://dvds-announcement-robots-anticipated.trycloudflare.com/players";
+const DEFAULT_URL = "https://dvds-announcement-robots-anticipated.trycloudflare.com";   // join link (the page adds /players itself)
+const baseOf = u => String(u||"").trim().replace(/\/+$/,"").replace(/\/players$/i,"");
 const POLL_MS = 2000;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -85,8 +78,6 @@ const O = {lat:47.4979, lon:19.0402}, M = 111320, KX = M*Math.cos(O.lat*Math.PI/
 const cmul = (a,b)=>[a[0]*b[0]-a[1]*b[1], a[0]*b[1]+a[1]*b[0]];
 const cdiv = (a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
 const csub = (a,b)=>[a[0]-b[0],a[1]-b[1]], cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]];
-let anchors = store.get("anchors4", []);   // [{z:[x,y], w:[east,north]}]
-$("flip").checked = store.get("flip", false);
 let A=[1,0], B=[0,0];
 
 // Built-in anchor: game (7986.6, 249.0) = 47.501781, 19.135568 (real position at the Örs vezér tere terminal, given by the player).
@@ -302,7 +293,7 @@ let fitRms = null;
 const TPS_LAMBDA = 0.03;      // smoothing in km^2 (0 = pass exactly through every anchor, larger = stiffer)
 let tps = null, tpsRms = null;
 let stopLayer = null;
-const currentList = () => $("flip").checked ? anchors.slice() : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]).concat(anchors);
+const currentList = () => DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF];
 const tpsU = r2 => r2 > 1e-12 ? 0.5*r2*Math.log(r2) : 0;   // r^2 ln r
 function buildTPS(list){
   tps = null; tpsRms = null;
@@ -370,20 +361,13 @@ function solveFit(){
   }
   if(n>=1){ const p=list[n-1]; B=csub(p.w,cmul(A,p.z)); }
 }
-const zOf = p => [p.x, $("flip").checked ? -p.y : p.y];
+const zOf = p => [p.x, p.y];
 function toLatLng(p){
   if(p.lat!=null && p.lon!=null) return [p.lat,p.lon];
   const z = zOf(p), w = warpZ(z);
   return [O.lat + w[1]/M, O.lon + w[0]/KX];
 }
-function calText(){
-  const deg = Math.atan2(A[1],A[0])*180/Math.PI, sc = Math.hypot(A[0],A[1]);
-  $("calst").textContent = currentList().length
-    ? `Calibrated with ${currentList().length} point(s) · global scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (tps ? ` · spline warp, error at anchors ${tpsRms.toFixed(0)} m` : "")
-    : ($("flip").checked ? "Not calibrated: select a player, press Calibrate, click where they really are."
-       : "Using built-in estimate (one point, 90° rotation assumed). For exact placement: select a player, press Calibrate, click their real position.");
-}
-solve(); calText();
+solve();
 
 // ---------- reference stops (ALL bus_stop objects from the map's tile_*.map files, 412 stops) ----------
 // Game position = tile*300 + local position inside the tile (read straight from the .map files, so exact in game coordinates). The red dots show where the
@@ -803,37 +787,23 @@ const STOPS = [
   ["Üllői út", -1300.1, 71.1, 47.433130, 19.207190],
   ["Üllői út", -959.9, 140.8, 47.435214, 19.202186]
 ];
-let selStop = null;
 stopLayer = L.layerGroup().addTo(map);
 function renderStops(){
   stopLayer.clearLayers();
   if(!$("showstops").checked) return;
-  STOPS.forEach((s,i) => {
-    const on = i===selStop, real = s.length>3 && !$("flip").checked;
+  STOPS.forEach(s => {
+    const real = s.length > 3;
     const ll = real ? [s[3], s[4]] : toLatLng({x:s[1], y:s[2]});
-    const m = L.circleMarker(ll, {radius:on?8:5, color:"#000", weight:1, fillColor:on?"#fff":(real?"#3fb950":"#e5383b"), fillOpacity:.9, bubblingMouseEvents:false});
+    const m = L.circleMarker(ll, {radius:5, color:"#000", weight:1, fillColor: real ? "#3fb950" : "#e5383b", fillOpacity:.9});
     m.bindTooltip(s[0] + (real ? "  (real position)" : "  (estimated from the warp)"));
-    m.on("click", () => selectStop(i));
     stopLayer.addLayer(m);
   });
 }
-function selectStop(i){
-  selStop = i; selected = null; renderList(); renderStops();
-  $("follow").checked = false;
-  $("calst").textContent = `Stop selected: ${STOPS[i][0]}. Right-click (long-press) its real position on the map, or press Calibrate and click it.`;
-}
 $("showstops").onchange = renderStops;
 renderStops();
-// what a calibration click refers to: the selected player, else the selected reference stop
-function refPoint(){
-  const p = players.find(p=>p.id===selected) || (selStop==null && players.length===1 ? players[0] : null);
-  if(p) return {name:p.name, z:zOf(p), player:p};
-  if(selStop!=null){ const s=STOPS[selStop]; return {name:s[0], z:zOf({x:s[1], y:s[2]})}; }
-  return null;
-}
 
 // ---------- state ----------
-let players = [], selected = null, calMode = false;
+let players = [], selected = null, fitted = false;
 const markers = new Map();
 
 function busName(path){
@@ -846,15 +816,20 @@ function busName(path){
 function icon(p){
   const col = p.on_foot ? "#4cc9f0" : "#ffb703";
   let h = p.heading||0;
-  if($("flip").checked) h = 180 - h;
   const LA = (typeof p.x==='number' && typeof p.y==='number') ? localA(zOf(p)) : A;
   h -= Math.atan2(LA[1],LA[0])*180/Math.PI;
-  const label = p.name + (!p.on_foot && p.line ? ` · ${p.line}` + (p.destination ? ` → ${p.destination}` : "") : "");
+  const v = x => (x==null || x==="") ? "–" : esc(x);
+  const busShort = p.bus ? String(p.bus).split(/[\\/]/).pop() : "";
+  const lines = [`<b>${esc(p.name)}</b> (${esc(p.id)})`];
+  if(!p.on_foot){
+    lines.push(`Busz: ${v(busShort)}`, `Vonal: ${v(p.line)}`, `Cél: ${v(p.destination)}`, `Forgalmi: ${v(p.tour)}`);
+  }
+  lines.push(`Sebesség: ${Math.round(p.speed_kmh||0)} km/h`);
   return L.divIcon({
     className:"", iconSize:[26,26], iconAnchor:[13,13],
     html:`<div class="mk"><svg width="26" height="26" viewBox="-13 -13 26 26" style="transform:rotate(${h}deg)">
       <path d="M0-11L7 8L0 4L-7 8Z" fill="${col}" stroke="#000" stroke-width="1.5"/></svg>
-      <span class="lb">${esc(label)}</span></div>`
+      <span class="lb">${lines.join("<br>")}</span></div>`
   });
 }
 
@@ -890,68 +865,24 @@ function fit(){
 }
 
 function select(id){
-  selected = id; selStop = null; renderList(); renderStops();
+  selected = id; renderList();
   const p = players.find(p=>p.id===id);
-  if(p){ $("follow").checked=false; map.setView(toLatLng(p), Math.max(map.getZoom(),15)); }
+  if(p){ map.setView(toLatLng(p), Math.max(map.getZoom(),15)); }
 }
 $("list").onclick = e => { const el = e.target.closest(".p"); if(!el) return; const p = players.find(p => String(p.id) === el.dataset.id); if(p) select(p.id); };
-
-// user interaction turns off auto-fit
-["mousedown","wheel","touchstart"].forEach(ev => $("map").addEventListener(ev, ()=>{ $("follow").checked=false; }, {passive:true}));
-
-// ---------- calibration ----------
-$("cal").onclick = () => {
-  const r = refPoint();
-  if(!r){ $("calst").textContent = "Select a player in the list, or click a red reference stop, first."; return; }
-  if(r.player) selected = r.player.id;
-  calMode = true; $("cal").classList.add("on"); $("map").classList.add("cal");
-  $("calst").textContent = `Click the map where ${r.name} actually is…`;
-};
-map.on("click", e => {
-  if(!calMode) return;
-  const r = refPoint(); if(!r) return;
-  const w = [(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M];
-  anchors.push({z:r.z, w}); anchors = anchors.slice(-20); store.set("anchors4", anchors);
-  calMode=false; $("cal").classList.remove("on"); $("map").classList.remove("cal");
-  solve(); calText(); renderMarkers(); renderList();
-});
-$("setll").onclick = () => {
-  const m = $("ll").value.match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
-  const r = refPoint();
-  if(!m){ $("calst").textContent = "Enter coordinates like: 47.50179, 19.13557"; return; }
-  if(!r){ $("calst").textContent = "Select a player in the list, or click a red reference stop, first."; return; }
-  const lat = +m[1], lon = +m[2];
-  anchors.push({z:r.z, w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-20); store.set("anchors4", anchors);
-  solve(); calText(); renderMarkers(); renderList();
-};
-// Quick calibration: right-click (long-press on touch) the map where the selected player / reference stop really is.
-map.on("contextmenu", e => {
-  const r = refPoint();
-  if(!r){ $("calst").textContent = "Select a player in the list, or click a red reference stop, first."; return; }
-  anchors.push({z:r.z, w:[(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M]});
-  anchors = anchors.slice(-20); store.set("anchors4", anchors);
-  solve(); calText(); renderMarkers(); renderList();
-});
-$("copy").onclick = async () => {
-  const txt = JSON.stringify(anchors);
-  try{ await navigator.clipboard.writeText(txt); $("calst").textContent = "Copied calibration: " + txt; }
-  catch(e){ prompt("Copy this calibration:", txt); }
-};
-$("reset").onclick = () => { anchors=[]; store.set("anchors4",[]); solve(); calText(); renderMarkers(); };
-$("flip").onchange = () => { store.set("flip",$("flip").checked); anchors=[]; store.set("anchors4",[]); solve(); calText(); renderMarkers(); if($("follow").checked) fit(); };
 
 // ---------- polling ----------
 // URL priority: ?api=... in the page address > saved value > DEFAULT_URL.
 // If DEFAULT_URL changed since the visitor's last visit (new tunnel), the new default replaces the stale saved one.
 const qp = new URLSearchParams(location.search).get("api");
-if(qp){ store.set("url", qp); }
+if(qp){ store.set("url", baseOf(qp)); }
 else if(store.get("defSeen", null) !== DEFAULT_URL){ store.set("url", DEFAULT_URL); }
 store.set("defSeen", DEFAULT_URL);
-$("url").value = store.get("url", DEFAULT_URL);
+$("url").value = baseOf(store.get("url", DEFAULT_URL));
 
 let timer = null, failures = 0, polling = false;
-const cleanUrl = () => $("url").value.trim();
-$("url").onchange = () => { store.set("url", cleanUrl()); failures = 0; poll(); };
+const cleanUrl = () => baseOf($("url").value) + "/players";   // field shows the join link, requests go to /players
+$("url").onchange = () => { $("url").value = baseOf($("url").value); store.set("url", $("url").value); failures = 0; poll(); };
 
 function schedule(){
   clearTimeout(timer);
@@ -975,7 +906,7 @@ async function poll(){
     failures = 0;
     $("st").className = "status ok"; $("st").textContent = "updated " + new Date().toLocaleTimeString();
     renderMarkers(); renderList();
-    if($("follow").checked) fit();
+    if(!fitted && players.length){ fitted = true; fit(); }   // zoom to the players once, then leave the view alone
   }catch(err){
     failures++;
     const msg = err.name==="AbortError" ? "timeout" : err.message;

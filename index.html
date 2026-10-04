@@ -24,6 +24,7 @@
   .p.sel{outline:1px solid #fff}
   .p b{display:block}
   .p small{color:var(--mute)}
+  .row input{flex:1;min-width:0}
   main{flex:1;position:relative}
   #map{position:absolute;inset:0}
   #map.cal{cursor:crosshair}
@@ -41,6 +42,7 @@
   <label><input type="checkbox" id="follow" checked> Auto-fit to players</label>
   <label><input type="checkbox" id="flip"> Flip Y axis</label>
   <div class="row"><button id="cal">📍 Calibrate</button><button id="reset">Reset</button><button id="copy">Copy</button></div>
+  <div class="row"><input type="text" id="ll" placeholder="real lat, lon (paste from Google Maps)"><button id="setll" style="flex:none">Set</button></div>
   <div id="calst" class="status"></div>
   <div id="list"></div>
 </aside>
@@ -86,11 +88,11 @@ let anchors = store.get("anchors", []);   // [{z:[x,y], w:[east,north]}]
 $("flip").checked = store.get("flip", false);
 let A=[1,0], B=[0,0];
 
-// Built-in estimate: game (7960.5, 255.1) = Örs vezér tere M+H bus stop (BKK stop-group coordinates).
+// Built-in estimate: game (7960.5, 255.1) = 47.50179, 19.13557 (GPS position given by the player at the Örs vezér tere terminal).
 // Replace it any time with a real calibration click.
 // Paste the output of the "Copy" button here so every visitor gets the same calibration.
 const DEFAULT_ANCHORS = [];
-const DEF = {z:[7960.5,255.1], w:[(19.137819-O.lon)*KX, (47.503357-O.lat)*M]};
+const DEF = {z:[7960.5,255.1], w:[(19.135567859-O.lon)*KX, (47.501790268-O.lat)*M]};
 function solve(){
   A=[1,0]; B=[0,0];
   const list = anchors.length ? anchors : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : ($("flip").checked ? [] : [DEF]));
@@ -111,7 +113,7 @@ function calText(){
   $("calst").textContent = (anchors.length || DEFAULT_ANCHORS.length)
     ? `Calibrated with ${Math.min(anchors.length || DEFAULT_ANCHORS.length,2)} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°`
     : ($("flip").checked ? "Not calibrated: select a player, press Calibrate, click where they really are."
-       : "Using built-in estimate (Örs vezér tere M+H). For exact placement: select a player, press Calibrate, click their real position.");
+       : "Using built-in estimate (one point, no rotation). For exact placement: select a player, press Calibrate, click their real position.");
 }
 solve(); calText();
 
@@ -197,6 +199,15 @@ map.on("click", e => {
   calMode=false; $("cal").classList.remove("on"); $("map").classList.remove("cal");
   solve(); calText(); renderMarkers(); renderList();
 });
+$("setll").onclick = () => {
+  const m = $("ll").value.match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
+  const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
+  if(!m){ $("calst").textContent = "Enter coordinates like: 47.50179, 19.13557"; return; }
+  if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
+  const lat = +m[1], lon = +m[2];
+  anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-2); store.set("anchors", anchors);
+  solve(); calText(); renderMarkers(); renderList();
+};
 $("copy").onclick = async () => {
   const txt = JSON.stringify(anchors);
   try{ await navigator.clipboard.writeText(txt); $("calst").textContent = "Copied calibration: " + txt; }

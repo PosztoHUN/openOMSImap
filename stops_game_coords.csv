@@ -1,31 +1,31 @@
-Ôªøname,game_x,game_y,km_from_nearest_anchor,real_lat,real_lon,position_source,approx_error_m
-"Vecs√©s, Erzs√©bet t√©r (576, 577, 578)",-6678.7,54.7,0.9,47.399977,19.258828,estimated: spline warp,100-500
-"Vecs√©s, vas√∫t√°llom√°s (100a vonatp√≥tl√≥)",-6005.3,-495.1,0.0,47.408454,19.256438,verified: Wikidata,<50
-Airport Hotel St√°ci√≥,-5791.1,479.0,0.0,47.401825,19.245844,verified: OSM / Tripadvisor,<50
-Aeropark,-5081.8,-2026.8,0.0,47.423634,19.262660,"verified: Tripadvisor (museum point, bus stop a few hundred m away)",30-300
-"Vecs√©s, Market Central Ferihegy (193E)",-5038.0,-1015.3,0.0,47.416816,19.251653,verified: BKK Fut√°r stop,<50
-Airport Hotel Budapest,-4815.8,-436.7,0.0,47.414720,19.244170,verified: hotel website,<50
-"Liszt Ferenc Airport 2 (200E, 900)",-4275.2,-2722.1,0.0,47.432898,19.261431,verified: BKK Fut√°r stop,<50
-"Ganztelep, Medny√°nszky utca (193E)",-3338.7,-519.9,0.0,47.423843,19.234636,verified: BKK Fut√°r stop,<50
-"R√°koshegy vas√∫t√°llom√°s (98E, 980)",-1259.0,-4190.6,0.0,47.467968,19.244845,verified: Wikidata,<50
-"Pestszentl√∂rinc, B√©ke t√©r (50VP)",-2213.1,-167.4,0.0,47.428688,19.219013,verified: BKK Fut√°r stop,<50
-Ferihegy vas√∫t√°llom√°s (50VP),-2039.9,-1019.8,0.0,47.437380,19.223640,verified: OpenStreetMap,<50
-"Alacskai √∫ti lak√≥telep (182, 282E)",-1981.9,1471.2,0.0,47.413200,19.201482,verified: BKK Fut√°r stop,<50
-"Pestszentimre, Benj√°min utca (184, 284E)",-1018.8,3763.2,0.0,47.399097,19.205631,verified: BKK Fut√°r stop,<50
-Szemeretelep vas√∫t√°llom√°s (183),-893.0,-822.2,0.0,47.444049,19.212756,verified: Wikidata,<50
-"D√©l-Pesti aut√≥buszgar√°zs (900, 980)",359.8,2683.8,0.0,47.426744,19.161140,verified: BKK Fut√°r stop,<50
-D√©l-Pesti aut√≥buszgar√°zs (csukl√≥s),588.8,2825.0,0.3,47.427339,19.157262,estimated: spline warp,50-150
-Gilice t√©r (182A),-9.8,1406.7,0.0,47.432101,19.185643,verified: BKK Fut√°r stop,<50
-Szarvas cs√°rda t√©r (50VP),-14.4,468.7,0.0,47.440006,19.186180,verified: BKK Fut√°r stop,<50
-"Pestszentl√∂rinc, Szarvas cs√°rda t√©r (183)",164.0,367.7,0.0,47.441567,19.186136,verified: BKK Fut√°r stop,<50
-Kada utca / Magl√≥di √∫t (28-37VP),5421.6,-1116.3,0.5,47.485173,19.159546,estimated: spline warp,100-500
-K≈ëb√°nya-Kispest M (Regina t√°rol√≥),4082.1,532.6,0.2,47.465281,19.142740,estimated: spline warp,50-150
-√ñrs vez√©r tere M+H (h√°ts√≥ pihen√∂),7774.8,293.3,0.2,47.499639,19.135596,estimated: spline warp,50-150
-K≈ëb√°nya-Kispest M (Vol√°n t√°rol√≥),3859.5,428.4,0.1,47.464400,19.146053,estimated: spline warp,50-150
-K≈ëb√°nya-Kispest M (t√°rol√≥hely),3455.7,334.2,0.1,47.462185,19.151103,estimated: spline warp,50-150
-K≈ëb√°nya-Kispest M (182A),3606.6,395.6,0.1,47.462785,19.148977,estimated: spline warp,50-150
-"√âlessarok (3VP, 28-37VP)",6786.3,98.2,0.0,47.491917,19.140139,verified: BKK stop (busti.me),<50
-Ibis Hotel - Hat√°r √∫t M,4943.3,1335.5,0.0,47.465394,19.126029,estimated: spline warp,50-150
-"√ñrs vez√©r tere M+H (85, 85E)",7957.4,248.5,0.0,47.501512,19.135642,estimated: spline warp,50-150
-Hat√°r √∫t M (200E),4765.4,1312.5,0.0,47.464117,19.127585,estimated: spline warp,50-150
-Hat√°r √∫t M (M3 metr√≥p√≥tl√≥),4914.7,1343.3,0.0,47.465087,19.126113,estimated: spline warp,50-150
+name,game_x,game_y,km_from_nearest_anchor,real_lat,real_lon,position_source,approx_error_m
+"VecsÈs, ErzsÈbet tÈr (576, 577, 578)",-6678.7,54.7,0.9,47.39986889,19.2590464,estimated: spline warp,100-500
+"VecsÈs, vas˙t·llom·s (100a vonatpÛtlÛ)",-6005.3,-495.1,0,47.408454,19.256438,verified: Wikidata,<50
+Airport Hotel St·ciÛ,-5791.1,479,0,47.401825,19.245844,verified: OSM / Tripadvisor,<50
+Aeropark,-5081.8,-2026.8,0,47.423634,19.26266,"verified: Tripadvisor (museum point, bus stop a few hundred m away)",30-300
+"VecsÈs, Market Central Ferihegy (193E)",-5038,-1015.3,0,47.416816,19.251653,verified: BKK Fut·r stop,<50
+Airport Hotel Budapest,-4815.8,-436.7,0,47.41472,19.24417,verified: hotel website,<50
+"Liszt Ferenc Airport 2 (200E, 900)",-4275.2,-2722.1,0,47.432898,19.261431,verified: BKK Fut·r stop,<50
+"Ganztelep, Medny·nszky utca (193E)",-3338.7,-519.9,0,47.423843,19.234636,verified: BKK Fut·r stop,<50
+"R·koshegy vas˙t·llom·s (98E, 980)",-1259,-4190.6,0,47.467968,19.244845,verified: Wikidata,<50
+"Pestszentlˆrinc, BÈke tÈr (50VP)",-2213.1,-167.4,0,47.428688,19.219013,verified: BKK Fut·r stop,<50
+Ferihegy vas˙t·llom·s (50VP),-2039.9,-1019.8,0,47.43738,19.22364,verified: OpenStreetMap,<50
+"Alacskai ˙ti lakÛtelep (182, 282E)",-1981.9,1471.2,0,47.4132,19.201482,verified: BKK Fut·r stop,<50
+"Pestszentimre, Benj·min utca (184, 284E)",-1018.8,3763.2,0,47.399097,19.205631,verified: BKK Fut·r stop,<50
+Szemeretelep vas˙t·llom·s (183),-893,-822.2,0,47.44316183,19.21216596,verified: Wikidata,<50
+"DÈl-Pesti autÛbuszgar·zs (900, 980)",359.8,2683.8,0,47.426744,19.16114,verified: BKK Fut·r stop,<50
+DÈl-Pesti autÛbuszgar·zs (csuklÛs),588.8,2825,0.3,47.427339,19.157262,estimated: spline warp,50-150
+Gilice tÈr (182A),-9.8,1406.7,0,47.43155145,19.18081567,verified: BKK Fut·r stop,<50
+Szarvas cs·rda tÈr (50VP),-14.4,468.7,0,47.440006,19.18618,verified: BKK Fut·r stop,<50
+"Pestszentlˆrinc, Szarvas cs·rda tÈr (183)",164,367.7,0,47.441567,19.186136,verified: BKK Fut·r stop,<50
+Kada utca / MaglÛdi ˙t (28-37VP),5421.6,-1116.3,0.5,47.485173,19.159546,estimated: spline warp,100-500
+K?b·nya-Kispest M (Regina t·rolÛ),4082.1,532.6,0.2,47.46482169,19.14132115,estimated: spline warp,50-150
+÷rs vezÈr tere M+H (h·tsÛ pihenˆ),7774.8,293.3,0.2,47.499639,19.135596,estimated: spline warp,50-150
+K?b·nya-Kispest M (Vol·n t·rolÛ),3859.5,428.4,0.1,47.46419957,19.14578696,estimated: spline warp,50-150
+K?b·nya-Kispest M (t·rolÛhely),3455.7,334.2,0.1,47.46210749,19.1500481,estimated: spline warp,50-150
+K?b·nya-Kispest M (182A),3606.6,395.6,0.1,47.462785,19.148977,estimated: spline warp,50-150
+"…lessarok (3VP, 28-37VP)",6786.3,98.2,0,47.491917,19.140139,verified: BKK stop (busti.me),<50
+Ibis Hotel - Hat·r ˙t M,4943.3,1335.5,0,47.465394,19.126029,estimated: spline warp,50-150
+"÷rs vezÈr tere M+H (85, 85E)",7957.4,248.5,0,47.501512,19.135642,estimated: spline warp,50-150
+Hat·r ˙t M (200E),4765.4,1312.5,0,47.464117,19.127585,estimated: spline warp,50-150
+Hat·r ˙t M (M3 metrÛpÛtlÛ),4914.7,1343.3,0,47.465087,19.126113,estimated: spline warp,50-150

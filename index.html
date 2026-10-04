@@ -41,6 +41,7 @@
   <input type="text" id="url" placeholder="Players endpoint URL">
   <label><input type="checkbox" id="follow" checked> Auto-fit to players</label>
   <label><input type="checkbox" id="flip"> Flip Y axis</label>
+  <label><input type="checkbox" id="showstops" checked> Show reference stops (click one, then right-click its real spot)</label>
   <div class="row"><button id="cal">📍 Calibrate</button><button id="reset">Reset</button><button id="copy">Copy</button></div>
   <div class="row"><input type="text" id="ll" placeholder="real lat, lon (paste from Google Maps)"><button id="setll" style="flex:none">Set</button></div>
   <div id="calst" class="status"></div>
@@ -50,7 +51,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const DEFAULT_URL = " https://dvds-announcement-robots-anticipated.trycloudflare.com/players";
+const DEFAULT_URL = "https://dvds-announcement-robots-anticipated.trycloudflare.com/players";
 const POLL_MS = 2000;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -114,7 +115,13 @@ const DEFAULT_ANCHORS = [
   {z:[3534.2,439.8], w:ll2w(47.46183074671417, 19.148716697888833)},
   {z:[3656.7,425.1], w:ll2w(47.46278095902268, 19.148448828914976)},
   {z:[3565.0,359.1], w:ll2w(47.46283074057854, 19.149941588313933)},
-  {z:[4914.7,1343.3], w:ll2w(47.46513353342344, 19.12578973165683)}
+  {z:[4914.7,1343.3], w:ll2w(47.46513353342344, 19.12578973165683)},
+  {z:[4828.5,1354.2], w:ll2w(47.46412599586304, 19.12675698367486)},
+  {z:[4765.4,1299.1], w:ll2w(47.464223293643236, 19.1277476939486)},
+  {z:[4454.2,1183.4], w:ll2w(47.46299865191307, 19.13177636126686)},
+  {z:[3796.5,1030.7], w:ll2w(47.45972016239977, 19.139669934783964)},
+  {z:[3770.7,818.8], w:ll2w(47.46101019851618, 19.141907009174265)},
+  {z:[3854.7,562.1], w:ll2w(47.46323214726648, 19.143520774286984)}
 
   // Left out: they disagree with the three above by ~13 m. Re-add after re-measuring:
   // {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
@@ -126,19 +133,42 @@ const DEF = {z:[7986.6,249.0], w:[(19.135567859416135-O.lon)*KX, (47.50178104795
 // That is a +90° rotation (A = i). A single calibration point keeps this rotation; two distant points refine it.
 const ROT = [0,1];
 let fitRms = null;
-// The game map is slightly warped compared with OSM (local rotation/scale differ by a few degrees between areas), so one
-// global similarity cannot match every anchor. After the global fit, each anchor's leftover error is spread to nearby
-// positions (inverse-distance weighted); far from all anchors the correction fades to zero. Anchors then match exactly.
-const CORR_R = 1500;   // game units: beyond roughly this distance from every anchor the correction fades out
-let RES = [];
-const currentList = () => anchors.length ? anchors : ($("flip").checked ? [] : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]));
-function solve(){
-  solveFit();
-  RES = currentList().map(q => ({z:q.z, r:csub(q.w, cadd(cmul(A,q.z),B))}));
+// The game map is not a rigid copy of OSM: its local rotation/scale changes from area to area (about 100 deg near the
+// terminal, about 135 deg around y>1000). One global similarity therefore misses by hundreds of metres. Instead, every
+// position gets its OWN similarity (scale + rotation + shift), fitted to the anchors with weights that fall off with
+// distance (moving least squares). Far from all anchors it behaves like the nearest anchors' local fit.
+const MLS_ALPHA = 3, MLS_EPS = 1e5;   // weight = (dist^2 + EPS)^-ALPHA ; larger EPS = smoother, less exact
+const MLS_MIN = 4;                    // fewer anchors than this -> plain global fit
+// Built-in anchors + the ones a visitor adds in this browser (flip mode: only the visitor's own, the built-ins assume the normal Y axis).
+let stopLayer = null;
+const currentList = () => $("flip").checked ? anchors.slice() : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]).concat(anchors);
+function localSim(z){
+  const list = currentList();
+  if(list.length < MLS_MIN) return {A, B};
+  let sw=0, zx=0, zy=0, wx=0, wy=0;
+  const wts = list.map(q => { const dx=z[0]-q.z[0], dy=z[1]-q.z[1]; return Math.pow(dx*dx+dy*dy+MLS_EPS, -MLS_ALPHA); });
+  list.forEach((q,i) => { const t=wts[i]; sw+=t; zx+=t*q.z[0]; zy+=t*q.z[1]; wx+=t*q.w[0]; wy+=t*q.w[1]; });
+  const zc=[zx/sw, zy/sw], wc=[wx/sw, wy/sw];
+  let nr=0, ni=0, den=0;
+  list.forEach((q,i) => {
+    const t=wts[i], dz=csub(q.z,zc), dw=csub(q.w,wc), m=cmul(dw,[dz[0],-dz[1]]);
+    nr+=t*m[0]; ni+=t*m[1]; den+=t*(dz[0]*dz[0]+dz[1]*dz[1]);
+  });
+  if(!(den>0)) return {A, B};
+  const LA=[nr/den, ni/den];
+  return {A:LA, B:csub(wc, cmul(LA,zc))};
 }
+function localMisfit(){
+  const list = currentList();
+  if(!list.length) return null;
+  let sum=0;
+  for(const q of list){ const s=localSim(q.z), e=csub(cadd(cmul(s.A,q.z),s.B), q.w); sum+=e[0]*e[0]+e[1]*e[1]; }
+  return Math.sqrt(sum/list.length);
+}
+function solve(){ solveFit(); if(stopLayer) renderStops(); }
 function solveFit(){
   A=ROT; B=[0,0]; fitRms=null;
-  const list = anchors.length ? anchors : ($("flip").checked ? [] : (DEFAULT_ANCHORS.length ? DEFAULT_ANCHORS : [DEF]));
+  const list = currentList();
   const n = list.length;
   if(n>=2){
     const zm=[list.reduce((a,p)=>a+p.z[0],0)/n, list.reduce((a,p)=>a+p.z[1],0)/n];
@@ -159,26 +189,127 @@ function solveFit(){
 const zOf = p => [p.x, $("flip").checked ? -p.y : p.y];
 function toLatLng(p){
   if(p.lat!=null && p.lon!=null) return [p.lat,p.lon];
-  const z = zOf(p);
-  let w = cadd(cmul(A,z),B);
-  if(RES.length){
-    let nx=0, ny=0, den=1/(CORR_R*CORR_R);
-    for(const q of RES){
-      const dx=z[0]-q.z[0], dy=z[1]-q.z[1], k=1/(dx*dx+dy*dy+25);
-      nx+=k*q.r[0]; ny+=k*q.r[1]; den+=k;
-    }
-    w = [w[0]+nx/den, w[1]+ny/den];
-  }
+  const z = zOf(p), sm = localSim(z);
+  const w = cadd(cmul(sm.A,z), sm.B);
   return [O.lat + w[1]/M, O.lon + w[0]/KX];
 }
 function calText(){
   const deg = Math.atan2(A[1],A[0])*180/Math.PI, sc = Math.hypot(A[0],A[1]);
-  $("calst").textContent = (anchors.length || DEFAULT_ANCHORS.length)
-    ? `Calibrated with ${anchors.length || DEFAULT_ANCHORS.length} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (fitRms!=null ? ` · global misfit ${fitRms.toFixed(1)} m (local correction on)` : "")
+  $("calst").textContent = currentList().length
+    ? `Calibrated with ${currentList().length} point(s) · scale ${sc.toFixed(3)} · rotation ${deg.toFixed(1)}°` + (fitRms!=null ? ` · global misfit ${fitRms.toFixed(1)} m` : "") + (currentList().length>=MLS_MIN ? ` · local fit misfit ${localMisfit().toFixed(1)} m (position uses the local fit)` : "")
     : ($("flip").checked ? "Not calibrated: select a player, press Calibrate, click where they really are."
        : "Using built-in estimate (one point, 90° rotation assumed). For exact placement: select a player, press Calibrate, click their real position.");
 }
 solve(); calText();
+
+// ---------- reference stops (entry points from the map's global.cfg) ----------
+// Game position = tile*300 + local position (checked against measured anchors: within 13-71 m). The red dots show where the
+// CURRENT calibration puts each stop. To fix an area without a player: click a dot, then right-click (long-press) the stop's
+// real position on the map -> that becomes a new anchor.
+const STOPS = [
+  ["Aeropark", -5081.8, -2026.8],
+  ["Aeropark", -5076.0, -2027.8],
+  ["Aeropark", -5069.4, -2028.7],
+  ["Aeropark", -5062.2, -2030.8],
+  ["Aeropark", -5055.3, -2031.8],
+  ["Aeropark", -5048.3, -2032.9],
+  ["Airport Hotel Budapest", -4815.8, -436.7],
+  ["Airport Hotel Stáció", -5791.1, 479.0],
+  ["Alacskai úti lakótelep (182, 282E)", -1981.9, 1471.2],
+  ["Dél-Pesti autóbuszgarázs (900, 980)", 359.8, 2683.8],
+  ["Dél-Pesti autóbuszgarázs (csuklós)", 459.1, 2831.9],
+  ["Dél-Pesti autóbuszgarázs (csuklós)", 500.0, 2830.6],
+  ["Dél-Pesti autóbuszgarázs (csuklós)", 588.8, 2825.0],
+  ["Dél-Pesti autóbuszgarázs (csuklós)", 678.8, 2807.0],
+  ["Dél-Pesti autóbuszgarázs (csuklós)", 712.5, 2827.1],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 468.4, 2812.2],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 500.1, 2810.5],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 541.0, 2806.6],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 553.2, 2805.5],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 570.0, 2686.7],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 640.2, 2788.7],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 663.7, 2769.6],
+  ["Dél-Pesti autóbuszgarázs (szóló)", 703.0, 2770.8],
+  ["Ferihegy vasútállomás (50VP)", -2039.9, -1019.8],
+  ["Ganztelep, Mednyánszky utca (193E)", -3338.7, -519.9],
+  ["Gilice tér (182A)", -9.8, 1406.7],
+  ["Határ út M (200E)", 4765.4, 1312.5],
+  ["Határ út M (M3 metrópótló)", 4914.7, 1343.3],
+  ["Határ út M (M3 metrópótló)", 4961.2, 1329.8],
+  ["Ibis Hotel - Határ út M", 4943.3, 1335.5],
+  ["Kada utca / Maglódi út (28-37VP)", 5421.6, -1116.3],
+  ["Kőbánya-Kispest M (100a vonat-, M3 metrópótló)", 3552.1, 341.8],
+  ["Kőbánya-Kispest M (100a vonat-, M3 metrópótló)", 3556.8, 349.2],
+  ["Kőbánya-Kispest M (182, 184)", 3600.2, 392.8],
+  ["Kőbánya-Kispest M (182A)", 3606.6, 395.6],
+  ["Kőbánya-Kispest M (193E)", 3609.8, 412.6],
+  ["Kőbánya-Kispest M (200E)", 3576.8, 383.6],
+  ["Kőbánya-Kispest M (282E, 284E)", 3588.7, 388.3],
+  ["Kőbánya-Kispest M (576, 577, 578)", 3742.0, 443.1],
+  ["Kőbánya-Kispest M (85, 85E)", 3677.0, 415.1],
+  ["Kőbánya-Kispest M (85, 85E)", 3692.2, 421.8],
+  ["Kőbánya-Kispest M (98E)", 3636.5, 397.7],
+  ["Kőbánya-Kispest M (Regina tároló)", 4024.3, 492.5],
+  ["Kőbánya-Kispest M (Regina tároló)", 4057.7, 527.5],
+  ["Kőbánya-Kispest M (Regina tároló)", 4066.4, 528.5],
+  ["Kőbánya-Kispest M (Regina tároló)", 4073.8, 530.7],
+  ["Kőbánya-Kispest M (Regina tároló)", 4082.1, 532.6],
+  ["Kőbánya-Kispest M (Regina tároló)", 4105.4, 526.9],
+  ["Kőbánya-Kispest M (Volán tároló)", 3859.5, 428.4],
+  ["Kőbánya-Kispest M (Volán tároló)", 3875.8, 431.7],
+  ["Kőbánya-Kispest M (tárolóhely)", 3455.7, 334.2],
+  ["Kőbánya-Kispest M (tárolóhely)", 3460.8, 336.7],
+  ["Kőbánya-Kispest M (tárolóhely)", 3465.3, 340.8],
+  ["Kőbánya-Kispest M (tárolóhely)", 3470.9, 332.2],
+  ["Liszt Ferenc Airport 2 (200E, 900)", -4285.2, -2751.3],
+  ["Liszt Ferenc Airport 2 (200E, 900)", -4275.2, -2722.1],
+  ["Pestszentimre, Benjámin utca (184, 284E)", -1018.8, 3763.2],
+  ["Pestszentlörinc, Béke tér (50VP)", -2213.1, -167.4],
+  ["Pestszentlörinc, Szarvas csárda tér (183)", 164.0, 367.7],
+  ["Pestszentlörinc, Szarvas csárda tér (183)", 185.1, 367.7],
+  ["Rákoshegy vasútállomás (98E, 980)", -1259.0, -4190.6],
+  ["Rákoshegy vasútállomás (98E, 980)", -1213.8, -4163.1],
+  ["Szarvas csárda tér (50VP)", -14.4, 468.7],
+  ["Szemeretelep vasútállomás (183)", -893.0, -822.2],
+  ["Vecsés, Erzsébet tér (576, 577, 578)", -6700.4, 26.0],
+  ["Vecsés, Erzsébet tér (576, 577, 578)", -6678.7, 54.7],
+  ["Vecsés, Erzsébet tér (576, 577, 578)", -6644.7, 56.7],
+  ["Vecsés, Market Central Ferihegy (193E)", -5038.0, -1015.3],
+  ["Vecsés, vasútállomás (100a vonatpótló)", -6011.0, -489.2],
+  ["Vecsés, vasútállomás (100a vonatpótló)", -6005.3, -495.1],
+  ["Élessarok (3VP, 28-37VP)", 6786.3, 98.2],
+  ["Örs vezér tere M+H (3VP)", 7935.1, 198.4],
+  ["Örs vezér tere M+H (85, 85E)", 7957.4, 248.5],
+  ["Örs vezér tere M+H (hátsó pihenö)", 7774.8, 293.3],
+  ["Örs vezér tere M+H (hátsó pihenö)", 7817.3, 271.4]
+];
+let selStop = null;
+stopLayer = L.layerGroup().addTo(map);
+function renderStops(){
+  stopLayer.clearLayers();
+  if(!$("showstops").checked) return;
+  STOPS.forEach((s,i) => {
+    const on = i===selStop;
+    const m = L.circleMarker(toLatLng({x:s[1], y:s[2]}), {radius:on?8:5, color:"#000", weight:1, fillColor:on?"#fff":"#e5383b", fillOpacity:.9, bubblingMouseEvents:false});
+    m.bindTooltip(s[0]);
+    m.on("click", () => selectStop(i));
+    stopLayer.addLayer(m);
+  });
+}
+function selectStop(i){
+  selStop = i; selected = null; renderList(); renderStops();
+  $("follow").checked = false;
+  $("calst").textContent = `Stop selected: ${STOPS[i][0]}. Right-click (long-press) its real position on the map, or press Calibrate and click it.`;
+}
+$("showstops").onchange = renderStops;
+renderStops();
+// what a calibration click refers to: the selected player, else the selected reference stop
+function refPoint(){
+  const p = players.find(p=>p.id===selected) || (selStop==null && players.length===1 ? players[0] : null);
+  if(p) return {name:p.name, z:zOf(p), player:p};
+  if(selStop!=null){ const s=STOPS[selStop]; return {name:s[0], z:zOf({x:s[1], y:s[2]})}; }
+  return null;
+}
 
 // ---------- state ----------
 let players = [], selected = null, calMode = false;
@@ -195,7 +326,8 @@ function icon(p){
   const col = p.on_foot ? "#4cc9f0" : "#ffb703";
   let h = p.heading||0;
   if($("flip").checked) h = 180 - h;
-  h -= Math.atan2(A[1],A[0])*180/Math.PI;
+  const LA = (typeof p.x==='number' && typeof p.y==='number') ? localSim(zOf(p)).A : A;
+  h -= Math.atan2(LA[1],LA[0])*180/Math.PI;
   const label = p.name + (!p.on_foot && p.line ? ` · ${p.line}` + (p.destination ? ` → ${p.destination}` : "") : "");
   return L.divIcon({
     className:"", iconSize:[26,26], iconAnchor:[13,13],
@@ -237,7 +369,7 @@ function fit(){
 }
 
 function select(id){
-  selected = id; renderList();
+  selected = id; selStop = null; renderList(); renderStops();
   const p = players.find(p=>p.id===id);
   if(p){ $("follow").checked=false; map.setView(toLatLng(p), Math.max(map.getZoom(),15)); }
 }
@@ -248,34 +380,35 @@ $("list").onclick = e => { const el = e.target.closest(".p"); if(!el) return; co
 
 // ---------- calibration ----------
 $("cal").onclick = () => {
-  const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
-  if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
-  selected = p.id; calMode = true; $("cal").classList.add("on"); $("map").classList.add("cal");
-  $("calst").textContent = `Click the map where ${p.name} actually is…`;
+  const r = refPoint();
+  if(!r){ $("calst").textContent = "Select a player in the list, or click a red reference stop, first."; return; }
+  if(r.player) selected = r.player.id;
+  calMode = true; $("cal").classList.add("on"); $("map").classList.add("cal");
+  $("calst").textContent = `Click the map where ${r.name} actually is…`;
 };
 map.on("click", e => {
   if(!calMode) return;
-  const p = players.find(p=>p.id===selected); if(!p) return;
+  const r = refPoint(); if(!r) return;
   const w = [(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M];
-  anchors.push({z:zOf(p), w}); anchors = anchors.slice(-6); store.set("anchors4", anchors);
+  anchors.push({z:r.z, w}); anchors = anchors.slice(-20); store.set("anchors4", anchors);
   calMode=false; $("cal").classList.remove("on"); $("map").classList.remove("cal");
   solve(); calText(); renderMarkers(); renderList();
 });
 $("setll").onclick = () => {
   const m = $("ll").value.match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
-  const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
+  const r = refPoint();
   if(!m){ $("calst").textContent = "Enter coordinates like: 47.50179, 19.13557"; return; }
-  if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
+  if(!r){ $("calst").textContent = "Select a player in the list, or click a red reference stop, first."; return; }
   const lat = +m[1], lon = +m[2];
-  anchors.push({z:zOf(p), w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-6); store.set("anchors4", anchors);
+  anchors.push({z:r.z, w:[(lon-O.lon)*KX, (lat-O.lat)*M]}); anchors = anchors.slice(-20); store.set("anchors4", anchors);
   solve(); calText(); renderMarkers(); renderList();
 };
-// Quick calibration: right-click (long-press on touch) the map where the selected player really is.
+// Quick calibration: right-click (long-press on touch) the map where the selected player / reference stop really is.
 map.on("contextmenu", e => {
-  const p = players.find(p=>p.id===selected) || (players.length===1 ? players[0] : null);
-  if(!p){ $("calst").textContent = "Select a player in the list first."; return; }
-  anchors.push({z:zOf(p), w:[(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M]});
-  anchors = anchors.slice(-6); store.set("anchors4", anchors);
+  const r = refPoint();
+  if(!r){ $("calst").textContent = "Select a player in the list, or click a red reference stop, first."; return; }
+  anchors.push({z:r.z, w:[(e.latlng.lng-O.lon)*KX, (e.latlng.lat-O.lat)*M]});
+  anchors = anchors.slice(-20); store.set("anchors4", anchors);
   solve(); calText(); renderMarkers(); renderList();
 });
 $("copy").onclick = async () => {

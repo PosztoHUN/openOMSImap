@@ -1,0 +1,309 @@
+```html
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>openOMSI – Játékosok</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #111827;
+            color: #f9fafb;
+        }
+
+        header {
+            background: #1f2937;
+            padding: 20px 30px;
+            border-bottom: 1px solid #374151;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .status {
+            margin-top: 7px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .online {
+            color: #22c55e;
+        }
+
+        .offline {
+            color: #ef4444;
+        }
+
+        main {
+            padding: 25px;
+            max-width: 1400px;
+            margin: auto;
+        }
+
+        #players {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 18px;
+        }
+
+        .player {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,.2);
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .player-name {
+            font-size: 21px;
+            font-weight: bold;
+        }
+
+        .player-id {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .route {
+            font-size: 30px;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+
+        .destination {
+            font-size: 18px;
+            margin-top: 2px;
+            margin-bottom: 18px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 9px 0;
+            border-top: 1px solid #374151;
+            gap: 20px;
+        }
+
+        .label {
+            color: #9ca3af;
+        }
+
+        .value {
+            text-align: right;
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .speed {
+            font-size: 22px;
+            color: #22c55e;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+            background: #1f2937;
+            border-radius: 12px;
+        }
+
+        footer {
+            text-align: center;
+            color: #6b7280;
+            font-size: 13px;
+            padding: 25px;
+        }
+
+        @media (max-width: 500px) {
+            main {
+                padding: 12px;
+            }
+
+            #players {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🚌 openOMSI – Játékosok</h1>
+    <div class="status">
+        Állapot:
+        <span id="status" class="offline">kapcsolódás...</span>
+        · Játékosok: <span id="count">0</span>
+    </div>
+</header>
+
+<main>
+    <div id="players">
+        <div class="empty">Játékoslista betöltése...</div>
+    </div>
+</main>
+
+<footer>
+    openOMSI szerver · Automatikus frissítés: 5 másodperc
+</footer>
+
+<script>
+const API_URL =
+    "https://review-incomplete-legs-border.trycloudflare.com/players";
+
+const REFRESH_MS = 5000;
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function busName(path) {
+    if (!path) return "Ismeretlen";
+
+    // Csak a fájlnevet mutatjuk
+    const parts = path.split("/");
+    return parts[parts.length - 1];
+}
+
+function formatSpeed(speed) {
+    if (speed === null || speed === undefined) {
+        return "–";
+    }
+
+    return Number(speed).toFixed(1) + " km/h";
+}
+
+function renderPlayers(players) {
+    const container = document.getElementById("players");
+    const count = document.getElementById("count");
+
+    count.textContent = players.length;
+
+    if (!players.length) {
+        container.innerHTML = `
+            <div class="empty">
+                Jelenleg nincs játékos a szerveren.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = players.map(player => `
+        <div class="player">
+
+            <div class="player-header">
+                <div class="player-name">
+                    ${escapeHtml(player.name)}
+                </div>
+
+                <div class="player-id">
+                    #${escapeHtml(player.id)}
+                </div>
+            </div>
+
+            <div class="route">
+                ${escapeHtml(player.line || "–")}
+            </div>
+
+            <div class="destination">
+                ${escapeHtml(player.destination || "Nincs megadva")}
+            </div>
+
+            <div class="row">
+                <span class="label">Jármű</span>
+                <span class="value">
+                    ${escapeHtml(busName(player.bus))}
+                </span>
+            </div>
+
+            <div class="row">
+                <span class="label">Túra</span>
+                <span class="value">
+                    ${escapeHtml(player.tour || "–")}
+                </span>
+            </div>
+
+            <div class="row">
+                <span class="label">Sebesség</span>
+                <span class="value speed">
+                    ${formatSpeed(player.speed_kmh)}
+                </span>
+            </div>
+
+            <div class="row">
+                <span class="label">Állapot</span>
+                <span class="value">
+                    ${player.on_foot ? "Gyalog" : "Vezet"}
+                </span>
+            </div>
+
+        </div>
+    `).join("");
+}
+
+async function loadPlayers() {
+    const status = document.getElementById("status");
+
+    try {
+        const response = await fetch(API_URL + "?t=" + Date.now(), {
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const players = await response.json();
+
+        renderPlayers(players);
+
+        status.textContent = "online";
+        status.className = "online";
+
+    } catch (error) {
+        console.error("Játékoslista hiba:", error);
+
+        status.textContent = "offline";
+        status.className = "offline";
+
+        document.getElementById("players").innerHTML = `
+            <div class="empty">
+                Nem sikerült lekérni a szerver játékoslistáját.<br>
+                <small>${escapeHtml(error.message)}</small>
+            </div>
+        `;
+    }
+}
+
+loadPlayers();
+setInterval(loadPlayers, REFRESH_MS);
+</script>
+
+</body>
+</html>
+```

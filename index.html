@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Délpest 5.2 - openOMSI</title>
+<title>Online Players – Budapest</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{--bg:#0f1419;--panel:#171e26;--text:#e6edf3;--mute:#8b98a5;--acc:#ffb703;--foot:#4cc9f0}
@@ -154,7 +154,6 @@ const DEFAULT_ANCHORS = [
   {z:[-861.0,3495.6], w:ll2w(47.401890, 19.202102)},   // CONFIRMED Kapocs utca
   {z:[-3979.2,-897.9], w:ll2w(47.423010, 19.240351)},   // CONFIRMED Repülőtér, Főporta
   {z:[-3655.1,-947.9], w:ll2w(47.426227, 19.236739)},   // CONFIRMED Repülőtér, D porta
-  {z:[-2041.7,-1119.2], w:ll2w(47.436741, 19.222565)},   // CONFIRMED Ferihegy vasútállomás
   {z:[1984.5,-246.1], w:ll2w(47.458410, 19.176764)},   // CONFIRMED Felsőcsatári köz terminus + Felsőcsatári út (95) = in-game 95 terminus
   {z:[1242.1,99.8], w:ll2w(47.451445, 19.172900)},   // CONFIRMED Lakatos úti lakótelep (route 36 pair)
   {z:[-896.4,-822.1], w:ll2w(47.443151, 19.212205)},   // CONFIRMED Szemeretelep vasútállomás (183 terminus) = BKK F03808
@@ -185,8 +184,6 @@ const DEFAULT_ANCHORS = [
   {z:[171.5,-419.5], w:ll2w(47.452121, 19.195091)},   // fedezek utca
   {z:[7732.3,156.1], w:ll2w(47.499608, 19.137374)},   // feher uti ipari park
   {z:[3636.7,139.2], w:ll2w(47.465270, 19.152561)},   // feluljaro
-  {z:[-1984.1,-1096.7], w:ll2w(47.437393, 19.222806)},   // ferihegy vasutallomas
-  {z:[-1953.4,-1137.9], w:ll2w(47.437393, 19.222806)},   // ferihegy vasutallomas
   {z:[235.7,-1035.3], w:ll2w(47.456181, 19.201352)},   // frangepan utca
   {z:[-3365.2,-508.1], w:ll2w(47.423519, 19.234708)},   // ganztelep mednyanszky utca
   {z:[58.5,160.2], w:ll2w(47.443313, 19.189024)},   // gardonyi geza utca
@@ -271,6 +268,21 @@ const DEFAULT_ANCHORS = [
   {z:[3066.3,310.9], w:ll2w(47.460551, 19.154422)},   // wesselenyi utca
   {z:[3243.1,306.1], w:ll2w(47.461470, 19.152978)},   // wesselenyi utca
   {z:[133.8,726.8], w:ll2w(47.437733, 19.183945)},   // wlassics gyula utca
+
+  // --- FIX (reported wrong): matched to real BKK GTFS stops via the real 198 / 98 / 200E stop sequences (order, spacing, bearing) ---
+  {z:[-895.9,-1742.8], w:ll2w(47.453015, 19.220676)},   // Lorinci ut x3 = Lorinci ut / Belatelepi ut (F03429+F03430, midpoint)
+  {z:[-1303.5,-1748.8], w:ll2w(47.450886, 19.224680)},  // Belatelepi ut = F03431 (Belatelepi ut / Baross utca)
+  {z:[-1392.5,-1858.0], w:ll2w(47.451072, 19.226497)},  // Baross utca = F03432 (Belatelepi ut / Baross utca)
+  {z:[-1414.8,-2135.8], w:ll2w(47.452885, 19.229036)},  // Orgovanyi utca = F03564
+  {z:[-1403.7,-2211.0], w:ll2w(47.453433, 19.229595)},  // Orgovanyi utca (2nd) = F03565
+  {z:[273.2,2411.2], w:ll2w(47.428116, 19.165013)},     // Besence utca (+2) = F03625/F03626 (centroid)
+  {z:[260.3,2281.0], w:ll2w(47.429454, 19.167601)},     // Ipacsfa utca = F03622
+  {z:[229.6,2169.1], w:ll2w(47.429920, 19.168981)},     // Ipacsfa utca 2 = F03624
+  {z:[273.2,1762.4], w:ll2w(47.433265, 19.174370)},     // Szent Lorinc-telep (+1) = F03620/F03621 (centroid)
+  {z:[193.9,1519.4], w:ll2w(47.433274, 19.177803)},     // Margo Tivadar utca fel (+2) = 009480
+  {z:[210.8,1613.7], w:ll2w(47.433123, 19.176437)},     // Margo Tivadar utca le (+2) = 009551
+  {z:[-2041.7,-1119.2], w:ll2w(47.437667, 19.223377)},  // Ferihegy vasutallomas 200E / 200Em = 007928 (200E towards the airport)
+  {z:[-1954.8,-1137.9], w:ll2w(47.438423, 19.222716)},  // Ferihegy vasutallomas 200E2 = 007927 (200E towards Hatar ut M)
 
   // Left out: they disagree with the three above by ~13 m. Re-add after re-measuring:
   // {z:[7915.0,175.7], w:ll2w(47.50115692879961, 19.136699220095753)},
@@ -397,9 +409,9 @@ const STOPS = [
   ["Bajcsy-Zsilinszky utca", -1266.3, 106.8],
   ["Bajcsy-Zsilinszky utca", -1264.9, 99.2],
   ["Bajcsy-Zsilinszky utca900", -1260.7, 108.2],
-  ["Baross utca", -1392.5, -1858.0],
-  ["Besence utca", 279.9, 2418.0],
-  ["Besence utca 2", 266.5, 2404.4],
+  ["Baross utca", -1392.5, -1858.0, 47.451072, 19.226497],
+  ["Besence utca", 279.9, 2418.0, 47.428089, 19.165106],
+  ["Besence utca 2", 266.5, 2404.4, 47.428143, 19.164921],
   ["Billentyü utca", -494.4, -785.8],
   ["Billentyü utca2", -495.3, -786.3],
   ["Bocskai István utca", -1372.7, -2570.4],
@@ -410,7 +422,7 @@ const STOPS = [
   ["Bányató utca", 3809.5, -607.1],
   ["Béke tér", -2242.2, -157.3, 47.429206, 19.218312],
   ["Béke tér (Szükség-leszállóhely)", -2020.4, -110.6, 47.430006, 19.215624],
-  ["Bélatelepi út", -1303.5, -1748.8],
+  ["Bélatelepi út", -1303.5, -1748.8, 47.450886, 19.22468],
   ["Corvin korut 999", 4610.5, 1399.9],
   ["Corvin körút", 4240.9, 1119.3],
   ["Corvin körút", 4265.7, 1130.3],
@@ -461,9 +473,9 @@ const STOPS = [
   ["Ferihegy vasútállomás", -1954.1, -1137.9],
   ["Ferihegy vasútállomás 100a", -2039.9, -1119.2],
   ["Ferihegy vasútállomás 100a", -1957.1, -1137.9],
-  ["Ferihegy vasútállomás 200E", -2042.3, -1119.1],
-  ["Ferihegy vasútállomás 200E2", -1952.8, -1137.9],
-  ["Ferihegy vasútállomás 200Em", -2041.5, -1119.1],
+  ["Ferihegy vasútállomás 200E", -2042.3, -1119.1, 47.437667, 19.223377],
+  ["Ferihegy vasútállomás 200E2", -1952.8, -1137.9, 47.438423, 19.222716],
+  ["Ferihegy vasútállomás 200Em", -2041.5, -1119.1, 47.437667, 19.223377],
   ["Ferihegy vasútállomás900", -1955.3, -1137.9],
   ["Ferihegyi út", -1525.1, -4262.4],
   ["Frangepán utca", 230.6, -1013.6],
@@ -516,8 +528,8 @@ const STOPS = [
   ["Ibis Hotel - Határ út M LE", 4916.4, 1343.7],
   ["Ihász utca", 5893.2, 93.8, 47.484287, 19.143855],
   ["Ihász utca", 6078.8, 157.2, 47.485907, 19.142079],
-  ["Ipacsfa utca", 260.3, 2281.0],
-  ["Ipacsfa utca 2", 229.6, 2169.1],
+  ["Ipacsfa utca", 260.3, 2281.0, 47.429454, 19.167601],
+  ["Ipacsfa utca 2", 229.6, 2169.1, 47.42992, 19.168981],
   ["Iparvasút", -540.9, 312.4],
   ["Iparvasút", -533.6, 306.1],
   ["Iparvasút", -520.5, 326.9],
@@ -587,9 +599,9 @@ const STOPS = [
   ["Lehel utca", 3798.9, 1025.7],
   ["Lincoln út", -4653.8, -508.2, 47.415985, 19.243460],
   ["Lörinci utca", -4535.7, -460.4, 47.416591, 19.241515],
-  ["Lörinci út", -932.9, -1741.2],
-  ["Lörinci út", -900.9, -1746.6],
-  ["Lörinci út", -853.9, -1740.7],
+  ["Lörinci út", -932.9, -1741.2, 47.452889, 19.220815],
+  ["Lörinci út", -900.9, -1746.6, 47.453015, 19.220676],
+  ["Lörinci út", -853.9, -1740.7, 47.453141, 19.220537],
   ["Lőrinci temető", 80.2, -88.8],
   ["Lőrinci temető 2", 128.0, -118.4],
   ["Lőrinci temető 3", 111.9, -168.4],
@@ -597,10 +609,10 @@ const STOPS = [
   ["Madarász utca", -308.5, 378.7],
   ["Madarász utca", -302.0, 372.0],
   ["Madarász utca2", -293.7, 391.2],
-  ["Margó Tivadar utca 2", 193.9, 1518.5],
-  ["Margó Tivadar utca 2", 210.8, 1614.3],
-  ["Margó Tivadar utca fel", 193.8, 1520.2],
-  ["Margó Tivadar utca le", 210.8, 1613.1],
+  ["Margó Tivadar utca 2", 193.9, 1518.5, 47.433274, 19.177803],
+  ["Margó Tivadar utca 2", 210.8, 1614.3, 47.433123, 19.176437],
+  ["Margó Tivadar utca fel", 193.8, 1520.2, 47.433274, 19.177803],
+  ["Margó Tivadar utca le", 210.8, 1613.1, 47.433123, 19.176437],
   ["Melczer utca", -1287.3, -3504.5],
   ["Melczer utca", -1286.2, -3459.0],
   ["Meszaros Lorinc utca", 4794.0, 1493.0],
@@ -618,8 +630,8 @@ const STOPS = [
   ["Obszervatórium VÁ", -120.5, 1430.9],
   ["Olt utca", -1090.0, 582.2],
   ["Olt utca 2", -1035.7, 593.4],
-  ["Orgoványi utca", -1414.8, -2135.8],
-  ["Orgoványi utca", -1403.7, -2211.0],
+  ["Orgoványi utca", -1414.8, -2135.8, 47.452885, 19.229036],
+  ["Orgoványi utca", -1403.7, -2211.0, 47.453433, 19.229595],
   ["Pestszentimre, Benjámin utca", -1020.3, 3762.6],
   ["Pestszentimre, Benjámin utca LE", -991.8, 3735.1],
   ["Pestszentlörinc vasútállomás (átjáró)", 1204.7, -318.5],
@@ -700,8 +712,8 @@ const STOPS = [
   ["Szemeretelep vasútállomásh", -908.9, -952.5],
   ["Szent László utca", -1113.3, -577.1, 47.439869, 19.211890],
   ["Szent László utca", -771.7, -538.8, 47.441791, 19.207654],
-  ["Szent Lörinc-telep", 267.9, 1762.2],
-  ["Szent Lörinc-telep1", 278.4, 1762.7],
+  ["Szent Lörinc-telep", 267.9, 1762.2, 47.433089, 19.174369],
+  ["Szent Lörinc-telep1", 278.4, 1762.7, 47.43344, 19.17437],
   ["Sziget Kálmán utca", -715.2, 3270.0],
   ["Sziget Kálmán utca 2", -734.7, 3308.5],
   ["Szlávy utca", 5312.5, -203.8],

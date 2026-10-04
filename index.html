@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>openOMSI – Játékosok</title>
 
     <style>
@@ -13,295 +14,562 @@
 
         body {
             margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
+            padding: 20px;
             background: #111827;
             color: #f9fafb;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
-        header {
-            background: #1f2937;
-            padding: 20px 30px;
-            border-bottom: 1px solid #374151;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 26px;
-        }
-
-        .status {
-            margin-top: 7px;
-            color: #9ca3af;
-            font-size: 14px;
-        }
-
-        .online {
-            color: #22c55e;
-        }
-
-        .offline {
-            color: #ef4444;
-        }
-
-        main {
-            padding: 25px;
-            max-width: 1400px;
+        .container {
+            max-width: 1100px;
             margin: auto;
         }
 
-        #players {
+        h1 {
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            background: #374151;
+        }
+
+        .online {
+            background: #166534;
+        }
+
+        .offline {
+            background: #991b1b;
+        }
+
+        .empty {
+            background: #1f2937;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .players {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-            gap: 18px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
         }
 
         .player {
             background: #1f2937;
             border: 1px solid #374151;
             border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 5px 20px rgba(0,0,0,.2);
-        }
-
-        .player-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
+            padding: 18px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
         }
 
         .player-name {
             font-size: 21px;
             font-weight: bold;
-        }
-
-        .player-id {
-            color: #6b7280;
-            font-size: 12px;
+            margin-bottom: 12px;
         }
 
         .route {
-            font-size: 30px;
-            font-weight: bold;
-            color: #38bdf8;
-        }
-
-        .destination {
             font-size: 18px;
-            margin-top: 2px;
-            margin-bottom: 18px;
+            margin-bottom: 12px;
         }
 
-        .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 9px 0;
-            border-top: 1px solid #374151;
-            gap: 20px;
+        .route strong {
+            color: #60a5fa;
+        }
+
+        .info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .info-item {
+            background: #111827;
+            border-radius: 7px;
+            padding: 9px;
         }
 
         .label {
+            display: block;
             color: #9ca3af;
+            font-size: 12px;
+            margin-bottom: 3px;
         }
 
         .value {
-            text-align: right;
-            font-weight: 500;
+            font-weight: bold;
             word-break: break-word;
         }
 
-        .speed {
-            font-size: 22px;
-            color: #22c55e;
+        .error {
+            background: #450a0a;
+            border: 1px solid #991b1b;
+            color: #fecaca;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
-        .empty {
-            text-align: center;
-            padding: 60px 20px;
-            color: #9ca3af;
-            background: #1f2937;
-            border-radius: 12px;
-        }
-
-        footer {
-            text-align: center;
+        .footer {
+            margin-top: 25px;
             color: #6b7280;
             font-size: 13px;
-            padding: 25px;
         }
 
-        @media (max-width: 500px) {
-            main {
-                padding: 12px;
-            }
-
-            #players {
-                grid-template-columns: 1fr;
-            }
+        code {
+            color: #93c5fd;
         }
     </style>
 </head>
 
 <body>
 
-<header>
-    <h1>🚌 openOMSI – Játékosok</h1>
-    <div class="status">
-        Állapot:
-        <span id="status" class="offline">kapcsolódás...</span>
-        · Játékosok: <span id="count">0</span>
-    </div>
-</header>
+<div class="container">
 
-<main>
-    <div id="players">
-        <div class="empty">Játékoslista betöltése...</div>
-    </div>
-</main>
+    <h1>🚌 openOMSI játékosok</h1>
 
-<footer>
-    openOMSI szerver · Automatikus frissítés: 5 másodperc
-</footer>
+    <div class="subtitle">
+        Élő játékoslista
+    </div>
+
+    <div id="status" class="status">
+        Kapcsolódás...
+    </div>
+
+    <div id="error"></div>
+
+    <div id="players" class="players">
+        <div class="empty">
+            Játékoslista betöltése...
+        </div>
+    </div>
+
+    <div class="footer">
+        Automatikus frissítés: 5 másodpercenként
+    </div>
+
+</div>
 
 <script>
-const API_URL =
-    "https://review-incomplete-legs-border.trycloudflare.com/players";
 
-const REFRESH_MS = 5000;
+    /*
+     * openOMSI API
+     *
+     * FONTOS:
+     * Ez a közvetlen /players végpont.
+     */
+    const API_URL =
+        "https://review-incomplete-legs-border.trycloudflare.com/players";
 
-function escapeHtml(value) {
-    if (value === null || value === undefined) {
-        return "";
-    }
 
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
+    const playersElement = document.getElementById("players");
+    const statusElement = document.getElementById("status");
+    const errorElement = document.getElementById("error");
 
-function busName(path) {
-    if (!path) return "Ismeretlen";
 
-    // Csak a fájlnevet mutatjuk
-    const parts = path.split("/");
-    return parts[parts.length - 1];
-}
+    function escapeHtml(value) {
 
-function formatSpeed(speed) {
-    if (speed === null || speed === undefined) {
-        return "–";
-    }
-
-    return Number(speed).toFixed(1) + " km/h";
-}
-
-function renderPlayers(players) {
-    const container = document.getElementById("players");
-    const count = document.getElementById("count");
-
-    count.textContent = players.length;
-
-    if (!players.length) {
-        container.innerHTML = `
-            <div class="empty">
-                Jelenleg nincs játékos a szerveren.
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = players.map(player => `
-        <div class="player">
-
-            <div class="player-header">
-                <div class="player-name">
-                    ${escapeHtml(player.name)}
-                </div>
-
-                <div class="player-id">
-                    #${escapeHtml(player.id)}
-                </div>
-            </div>
-
-            <div class="route">
-                ${escapeHtml(player.line || "–")}
-            </div>
-
-            <div class="destination">
-                ${escapeHtml(player.destination || "Nincs megadva")}
-            </div>
-
-            <div class="row">
-                <span class="label">Jármű</span>
-                <span class="value">
-                    ${escapeHtml(busName(player.bus))}
-                </span>
-            </div>
-
-            <div class="row">
-                <span class="label">Túra</span>
-                <span class="value">
-                    ${escapeHtml(player.tour || "–")}
-                </span>
-            </div>
-
-            <div class="row">
-                <span class="label">Sebesség</span>
-                <span class="value speed">
-                    ${formatSpeed(player.speed_kmh)}
-                </span>
-            </div>
-
-            <div class="row">
-                <span class="label">Állapot</span>
-                <span class="value">
-                    ${player.on_foot ? "Gyalog" : "Vezet"}
-                </span>
-            </div>
-
-        </div>
-    `).join("");
-}
-
-async function loadPlayers() {
-    const status = document.getElementById("status");
-
-    try {
-        const response = await fetch(API_URL + "?t=" + Date.now(), {
-            cache: "no-store"
-        });
-
-        if (!response.ok) {
-            throw new Error("HTTP " + response.status);
+        if (value === null || value === undefined) {
+            return "";
         }
 
-        const players = await response.json();
-
-        renderPlayers(players);
-
-        status.textContent = "online";
-        status.className = "online";
-
-    } catch (error) {
-        console.error("Játékoslista hiba:", error);
-
-        status.textContent = "offline";
-        status.className = "offline";
-
-        document.getElementById("players").innerHTML = `
-            <div class="empty">
-                Nem sikerült lekérni a szerver játékoslistáját.<br>
-                <small>${escapeHtml(error.message)}</small>
-            </div>
-        `;
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
     }
-}
 
-loadPlayers();
-setInterval(loadPlayers, REFRESH_MS);
+
+    function getBusName(path) {
+
+        if (!path) {
+            return "-";
+        }
+
+        const parts = path.split("/");
+
+        return parts[parts.length - 1];
+    }
+
+
+    function getBusFolder(path) {
+
+        if (!path) {
+            return "-";
+        }
+
+        const parts = path.split("/");
+
+        if (parts.length >= 2) {
+            return parts[parts.length - 2];
+        }
+
+        return "-";
+    }
+
+
+    function formatSpeed(speed) {
+
+        if (speed === null || speed === undefined) {
+            return "-";
+        }
+
+        return Number(speed).toFixed(1) + " km/h";
+    }
+
+
+    function formatHeading(heading) {
+
+        if (heading === null || heading === undefined) {
+            return "-";
+        }
+
+        return Number(heading).toFixed(1) + "°";
+    }
+
+
+    function formatPosition(player) {
+
+        if (
+            player.x === null ||
+            player.x === undefined ||
+            player.y === null ||
+            player.y === undefined
+        ) {
+            return "-";
+        }
+
+        return Number(player.x).toFixed(1) +
+            " / " +
+            Number(player.y).toFixed(1);
+    }
+
+
+    function renderPlayers(players) {
+
+        if (!Array.isArray(players)) {
+            throw new Error(
+                "Az API válasza nem játékoslista."
+            );
+        }
+
+
+        if (players.length === 0) {
+
+            playersElement.innerHTML = `
+                <div class="empty">
+                    Jelenleg nincs játékos a szerveren.
+                </div>
+            `;
+
+            statusElement.textContent = "0 játékos";
+            statusElement.className = "status online";
+
+            return;
+        }
+
+
+        statusElement.textContent =
+            players.length +
+            (players.length === 1 ? " játékos online" : " játékos online");
+
+        statusElement.className = "status online";
+
+
+        playersElement.innerHTML = players.map(player => {
+
+            const name =
+                player.name ||
+                "Ismeretlen játékos";
+
+            const line =
+                player.line ||
+                "-";
+
+            const destination =
+                player.destination ||
+                "-";
+
+            const tour =
+                player.tour ||
+                "-";
+
+            const busName =
+                getBusName(player.bus);
+
+            const busFolder =
+                getBusFolder(player.bus);
+
+            const speed =
+                formatSpeed(player.speed_kmh);
+
+            const heading =
+                formatHeading(player.heading);
+
+            const position =
+                formatPosition(player);
+
+            const onFoot =
+                player.on_foot
+                    ? "Igen"
+                    : "Nem";
+
+
+            return `
+                <div class="player">
+
+                    <div class="player-name">
+                        👤 ${escapeHtml(name)}
+                    </div>
+
+                    <div class="route">
+                        🚌
+                        <strong>${escapeHtml(line)}</strong>
+                        →
+                        ${escapeHtml(destination)}
+                    </div>
+
+                    <div class="info">
+
+                        <div class="info-item">
+                            <span class="label">
+                                Játékos ID
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(player.id)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                Sebesség
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(speed)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                Jármű
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(busName)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                Járműmappa
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(busFolder)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                Menet / tour
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(tour)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                Irány
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(heading)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                OMSI pozíció
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(position)}
+                            </span>
+                        </div>
+
+
+                        <div class="info-item">
+                            <span class="label">
+                                Gyalog
+                            </span>
+
+                            <span class="value">
+                                ${escapeHtml(onFoot)}
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+            `;
+
+        }).join("");
+    }
+
+
+    async function loadPlayers() {
+
+        errorElement.innerHTML = "";
+
+
+        try {
+
+            /*
+             * Lekérjük az API-t.
+             */
+            const response = await fetch(
+                API_URL + "?t=" + Date.now(),
+                {
+                    method: "GET",
+                    cache: "no-store"
+                }
+            );
+
+
+            /*
+             * Ha HTTP hibát kapunk.
+             */
+            if (!response.ok) {
+
+                throw new Error(
+                    "HTTP hiba: " +
+                    response.status +
+                    " " +
+                    response.statusText
+                );
+            }
+
+
+            /*
+             * Először TEXT-ként olvassuk.
+             *
+             * Ez azért fontos, mert ha az API helyett
+             * egy HTML oldalt kapunk, akkor pontosan
+             * látni fogjuk, mi érkezett.
+             */
+            const text = await response.text();
+
+
+            /*
+             * JSON feldolgozás.
+             */
+            let data;
+
+            try {
+
+                data = JSON.parse(text);
+
+            } catch (jsonError) {
+
+                console.error(
+                    "A szerver nem JSON-t adott vissza:",
+                    text
+                );
+
+                throw new Error(
+                    "Az API nem JSON választ adott vissza.\n\n" +
+                    "A válasz eleje:\n" +
+                    text.substring(0, 500)
+                );
+            }
+
+
+            /*
+             * Játékosok megjelenítése.
+             */
+            renderPlayers(data);
+
+        }
+
+
+        catch (error) {
+
+            console.error(
+                "Játékoslista hiba:",
+                error
+            );
+
+
+            statusElement.textContent =
+                "API hiba";
+
+            statusElement.className =
+                "status offline";
+
+
+            playersElement.innerHTML = "";
+
+
+            errorElement.innerHTML = `
+                <div class="error">
+                    <strong>Nem sikerült lekérni a játékoslistát.</strong>
+
+                    <br><br>
+
+                    ${escapeHtml(error.message)}
+
+                    <br><br>
+
+                    API:
+                    <br>
+                    <code>${escapeHtml(API_URL)}</code>
+                </div>
+            `;
+        }
+
+    }
+
+
+    /*
+     * Első betöltés.
+     */
+    loadPlayers();
+
+
+    /*
+     * Frissítés 5 másodpercenként.
+     */
+    setInterval(
+        loadPlayers,
+        5000
+    );
+
 </script>
 
 </body>

@@ -135,7 +135,6 @@ const DEFAULT_ANCHORS = [
   {z:[-2039.9,-1014.3], w:ll2w(47.43738, 19.22364)},   // Ferihegy: OSM node 423222597
   {z:[-1979.2,1475.3], w:ll2w(47.4132, 19.201482)},   // Alacskai: BKK Futár stop F03861
   {z:[-1020.3,3762.6], w:ll2w(47.399097, 19.205631)},   // Benjámin: BKK Futár stop F03800
-  {z:[-896.4,-822.1], w:ll2w(47.444049, 19.212756)},   // Szemeretelep: Wikidata
   {z:[359.8,2683.8], w:ll2w(47.426744, 19.16114)},   // Garázs: BKK Futár stop 008472
   {z:[-13.9,1411.3], w:ll2w(47.432101, 19.185643)},   // Gilice: BKK Futár stop F03638
   {z:[-14.4,468.7], w:ll2w(47.440006, 19.18618)},   // Szarvas 50VP: BKK Futár stop F03719
@@ -156,8 +155,12 @@ const DEFAULT_ANCHORS = [
   {z:[-3979.2,-897.9], w:ll2w(47.423010, 19.240351)},   // CONFIRMED Repülőtér, Főporta
   {z:[-3655.1,-947.9], w:ll2w(47.426227, 19.236739)},   // CONFIRMED Repülőtér, D porta
   {z:[-2041.7,-1119.2], w:ll2w(47.436741, 19.222565)},   // CONFIRMED Ferihegy vasútállomás
-  {z:[1787.5,-214.0], w:ll2w(47.457379, 19.177716)},   // CONFIRMED Felsőcsatári út (200E side)
-  {z:[1984.5,-246.0], w:ll2w(47.458041, 19.176425)},   // CONFIRMED Felsőcsatári út (95 terminus side)
+  {z:[1984.5,-246.1], w:ll2w(47.458410, 19.176764)},   // CONFIRMED Felsőcsatári köz terminus + Felsőcsatári út (95) = in-game 95 terminus
+  {z:[1242.1,99.8], w:ll2w(47.451445, 19.172900)},   // CONFIRMED Lakatos úti lakótelep (route 36 pair)
+  {z:[-896.4,-822.1], w:ll2w(47.443151, 19.212205)},   // CONFIRMED Szemeretelep vasútállomás (183 terminus) = BKK F03808
+  {z:[-902.4,-918.9], w:ll2w(47.443996, 19.213017)},   // CONFIRMED Szemeretelep vasútállomás (in-game group at y=-919) = BKK F03869 (200E)
+  {z:[-909.5,-952.8], w:ll2w(47.444232, 19.213265)},   // CONFIRMED Szemeretelep vasútállomás (in-game group at y=-952) = BKK 100605 (200E)
+  {z:[1787.9,-214.0], w:ll2w(47.457379, 19.177716)},   // CONFIRMED Felsőcsatári út 200E = BKK F01545 (200E stop)
   {z:[-1250.8,-3848.0], w:ll2w(47.465955, 19.242066)},   // ady endre utca
   {z:[-2116.4,1049.0], w:ll2w(47.416941, 19.206506)},   // alacskai ut
   {z:[-1957.0,1413.1], w:ll2w(47.413543, 19.201695)},   // alacskai uti lakotelep
@@ -246,7 +249,6 @@ const DEFAULT_ANCHORS = [
   {z:[4175.9,-806.7], w:ll2w(47.473560, 19.160391)},   // sibrik miklos ut
   {z:[6749.8,-246.7], w:ll2w(47.491769, 19.144835)},   // sorgyar
   {z:[-1490.1,-4251.5], w:ll2w(47.467447, 19.248206)},   // szabadsag utca
-  {z:[-905.6,-924.5], w:ll2w(47.444288, 19.213271)},   // szemeretelep vasutallomas
   {z:[-771.7,-538.8], w:ll2w(47.441791, 19.207654)},   // szent laszlo utca
   {z:[-1113.3,-577.1], w:ll2w(47.439869, 19.211890)},   // szent laszlo utca
   {z:[-1731.3,519.1], w:ll2w(47.425084, 19.207106)},   // tarko utca
@@ -691,7 +693,7 @@ const STOPS = [
   ["Szemeretelep vasútállomás", -1315.1, -851.1],
   ["Szemeretelep vasútállomás", -908.5, -952.4],
   ["Szemeretelep vasútállomás", -904.4, -919.7],
-  ["Szemeretelep vasútállomás", -896.4, -822.1],
+  ["Szemeretelep vasútállomás", -896.4, -822.1, 47.443151, 19.212205],
   ["Szemeretelep vasútállomás 100a", -911.3, -953.5],
   ["Szemeretelep vasútállomás 100a", -900.3, -918.2],
   ["Szemeretelep vasútállomás900", -909.5, -952.7],

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Délpest 5.2 - openOMSI</title>
+<title>Dunántúl 3.0 - openOMSI</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{--bg:#0f1419;--panel:#171e26;--text:#e6edf3;--mute:#8b98a5;--acc:#ffb703;--foot:#4cc9f0}
@@ -27,23 +27,27 @@
   .mk svg{display:block}
   .lb{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);white-space:nowrap;text-align:left;line-height:1.35;background:rgba(0,0,0,.8);color:#fff;font:12px/1.35 system-ui,sans-serif;padding:4px 8px;border-radius:5px;pointer-events:none}
   .lb b{font-weight:700}
-  @media(max-width:700px){body{flex-direction:column-reverse}aside{width:100%;max-height:45vh}main{min-height:50vh}}
+  /* No player on the Delpest 5.2 map -> hide the map, show only the vehicle list */
+  body.nomap main{display:none}
+  body.nomap aside{width:100%;max-width:none;max-height:none;flex:1}
+  body.nomap #showstopsLabel{display:none}
+  @media(max-width:700px){body{flex-direction:column-reverse}aside{width:100%;max-height:45vh}main{min-height:50vh}body.nomap aside{max-height:none}}
 </style>
 </head>
-<body>
+<body class="nomap">
 <aside>
   <h1>🚌 Online players (<span id="n">0</span>)</h1>
   <div id="st" class="status">connecting…</div>
   <label for="url">Join link</label>
   <input type="text" id="url" placeholder="Join link">
-  <label><input type="checkbox" id="showstops" checked> Show reference stops (green = real position, red = estimated)</label>
+  <label id="showstopsLabel"><input type="checkbox" id="showstops" checked> Show reference stops (green = real position, red = estimated)</label>
   <div id="list"></div>
 </aside>
 <main><div id="map"></div></main>
 
-<script src="a szerver offline"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const DEFAULT_URL = "https://dreams-comes-traffic-praise.trycloudflare.com";   // join link (the page adds /players itself)
+const DEFAULT_URL = "https://dylan-impacts-fraser-beverage.trycloudflare.com";   // join link (the page adds /players itself)
 const baseOf = u => String(u||"").trim().replace(/\/+$/,"").replace(/\/players$/i,"");
 const POLL_MS = 2000;
 const $ = id => document.getElementById(id);
@@ -807,6 +811,22 @@ function renderStops(){
 $("showstops").onchange = renderStops;
 renderStops();
 
+// ---------- map-name detection ----------
+// The real-world map (tiles, stops, markers) is only shown while at least one player is on the "Delpest 5.2" map.
+// Otherwise only the vehicle list is shown. The map name is read from p.map / p.map_name / p.palya (accents, case, spaces ignored,
+// so "Delpest 5.2", "delpest_5_2" or "Maps\Délpest 5.2\global.cfg" all match). Adjust mapOf() if your server uses another field.
+const normMap = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const mapOf = p => p.map ?? p.map_name ?? p.palya ?? "";
+const isDelpest = p => normMap(mapOf(p)).includes("delpest52");
+
+let mapShown = null;
+function setMapVisible(v){
+  if(v === mapShown) return;
+  mapShown = v;
+  document.body.classList.toggle("nomap", !v);
+  if(v){ map.invalidateSize(); fitted = false; }   // re-zoom to the players when the map reappears
+}
+
 // ---------- state ----------
 let players = [], selected = null, fitted = false;
 const markers = new Map();
@@ -840,7 +860,7 @@ function icon(p){
 
 function renderMarkers(){
   const seen = new Set();
-  for(const p of players){
+  for(const p of players.filter(isDelpest)){      // only Delpest 5.2 players are placed on the real map
     seen.add(p.id);
     const ll = toLatLng(p);
     let m = markers.get(p.id);
@@ -858,13 +878,14 @@ function renderList(){
       <small>${p.on_foot ? "On foot" : "Line <b style='display:inline;color:var(--acc)'>"+esc(p.line||"–")+"</b> → "+esc(p.destination||"–")}<br>
       ${!p.on_foot && p.tour ? "Tour: "+esc(p.tour)+"<br>" : ""}
       ${!p.on_foot && p.bus ? "Bus: "+esc(busName(p.bus))+"<br>" : ""}
+      ${mapOf(p) ? "Map: "+esc(mapOf(p))+"<br>" : ""}
       ${Math.round(p.speed_kmh||0)} km/h · x ${Number(p.x).toFixed(1)}, y ${Number(p.y).toFixed(1)}</small>
     </div>`).join("") || '<div class="status">Nobody online</div>';
 }
 
 function fit(){
-  if(!players.length) return;
-  const pts = players.map(toLatLng);
+  const pts = players.filter(isDelpest).map(toLatLng);
+  if(!pts.length) return;
   if(pts.length===1) map.setView(pts[0], Math.max(map.getZoom(),15), {animate:false});
   else map.fitBounds(L.latLngBounds(pts).pad(0.3), {animate:false, maxZoom:16});
 }
@@ -872,7 +893,7 @@ function fit(){
 function select(id){
   selected = id; renderList();
   const p = players.find(p=>p.id===id);
-  if(p){ map.setView(toLatLng(p), Math.max(map.getZoom(),15)); }
+  if(p && mapShown && isDelpest(p)){ map.setView(toLatLng(p), Math.max(map.getZoom(),15)); }
 }
 $("list").onclick = e => { const el = e.target.closest(".p"); if(!el) return; const p = players.find(p => String(p.id) === el.dataset.id); if(p) select(p.id); };
 
@@ -910,8 +931,9 @@ async function poll(){
     players = data.filter(p => p && ((typeof p.x==="number" && typeof p.y==="number") || (p.lat!=null && p.lon!=null)));
     failures = 0;
     $("st").className = "status ok"; $("st").textContent = "updated " + new Date().toLocaleTimeString();
+    setMapVisible(players.some(isDelpest));          // map only while someone is on Delpest 5.2
     renderMarkers(); renderList();
-    if(!fitted && players.length){ fitted = true; fit(); }   // zoom to the players once, then leave the view alone
+    if(!fitted && mapShown){ fitted = true; fit(); }   // zoom to the players once, then leave the view alone
   }catch(err){
     failures++;
     const msg = err.name==="AbortError" ? "timeout" : err.message;

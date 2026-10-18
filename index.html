@@ -814,7 +814,7 @@ renderStops();
 // ---------- map-name detection ----------
 // The real-world map (tiles, stops, markers) is only shown while at least one player is on the "Delpest 5.2" map.
 // Otherwise only the vehicle list is shown. The map name is read from p.map / p.map_name / p.palya (accents, case, spaces ignored,
-// so "Delpest 5.2", "delpest_5_2" or "Maps\Délpest 5.2\global.cfg" all match). Adjust mapOf() if your server uses another field.
+// so "Delpest 5.2", "delpest_5_2" or "Maps\Delpest 5.2\global.cfg" all match). Adjust mapOf() if your server uses another field.
 const normMap = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const mapOf = p => p.map ?? p.map_name ?? p.palya ?? "";
 const isDelpest = p => normMap(mapOf(p)).includes("delpest52");
